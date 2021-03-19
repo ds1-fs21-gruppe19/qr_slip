@@ -1,0 +1,16 @@
+[package]
+name = "qr_slip"
+version = "0.1.0"
+authors = ["robinfriedli <robinfriedli@icloud.com>"]
+edition = "2018"
+
+[dependencies]
+chrono = "0.4.19"
+diesel = { version = "1.4.6", features = ["postgres", "r2d2"] }
+dotenv = "0.15.0"
+jsonwebtoken = "7.2.0"
+lazy_static = "1.4.0"
+serde = { version = "1.0.124", features = ["derive"] }
+thiserror = "1.0.24"
+tokio = { version = "1", features = ["full"] }
+warp = "0.3"
