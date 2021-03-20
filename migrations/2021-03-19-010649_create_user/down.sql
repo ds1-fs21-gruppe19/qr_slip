@@ -1,2 +1,2 @@
-DROP TABLE principal;
-DROP TABLE qr_user;
+DROP TABLE IF EXISTS qr_user;
+DROP TABLE IF EXISTS principal;

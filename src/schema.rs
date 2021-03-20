@@ -3,7 +3,6 @@ table! {
         pk -> Int4,
         user_name -> Varchar,
         password -> Varchar,
-        fk_user -> Int4,
     }
 }
 
@@ -17,12 +16,10 @@ table! {
         city -> Varchar,
         iban -> Varchar,
         country -> Varchar,
+        fk_principal -> Int4,
     }
 }
 
-joinable!(principal -> qr_user (fk_user));
+joinable!(qr_user -> principal (fk_principal));
 
-allow_tables_to_appear_in_same_query!(
-    principal,
-    qr_user,
-);
+allow_tables_to_appear_in_same_query!(principal, qr_user,);

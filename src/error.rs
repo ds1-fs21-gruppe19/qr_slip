@@ -12,6 +12,10 @@ pub enum Error {
     QueryError,
     #[error("There has been an error creating the JWT token")]
     JwtCreationError,
+    #[error("There has been an error encrypting / decrypting a password")]
+    EncryptionError,
+    #[error("There already exists a principal with the given identifier: '{0}'")]
+    PrincipalExists(String),
 }
 
 impl Reject for Error {}
@@ -26,9 +30,11 @@ pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(e) = err.find::<Error>() {
         let (code, message) = match e {
             Error::InvalidCredentials => (StatusCode::FORBIDDEN, e.to_string()),
-            Error::DatabaseConnectionError | Error::QueryError | Error::JwtCreationError => {
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-            }
+            Error::PrincipalExists(_) => (StatusCode::BAD_REQUEST, e.to_string()),
+            Error::DatabaseConnectionError
+            | Error::QueryError
+            | Error::JwtCreationError
+            | Error::EncryptionError => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         };
 
         let err_response = ErrorResponse {
