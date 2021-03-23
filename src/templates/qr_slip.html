@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="utf-8"/>
+    <style>
+        body {
+            font-family: Arial, Frutiger, Helvetica und Liberation Sans;
+            line-height: 0;
+        }
+
+        h1 {
+            font-weight: bold;
+            font-size: 11pt;
+        }
+
+        h3 {
+            font-weight: bold;
+            font-size: 8pt;
+        }
+
+        h4 {
+            font-weight: bold;
+            font-size: 6pt;
+        }
+
+        p {
+            font-size: 6pt;
+            line-height: 1pt;
+        }
+
+        .receipt-payable-by {
+            width: 52mm;
+            height: 20mm;
+        }
+
+        .receipt-currency-amount {
+            width: 30mm;
+            height: 10mm;
+        }
+
+        .payment-currency-amount {
+            width: 40mm;
+            height: 15mm;
+        }
+
+        .payment-payable-by {
+            width: 65mm;
+            height: 25mm;
+        }
+
+        .corners {
+            position: relative;
+            color: #000;
+            box-sizing: content-box;
+            border: 0.75pt solid transparent;
+        }
+
+        .corners::before, .corners::after, span::before, span::after {
+            display: block;
+            content: "";
+            width: 3mm;
+            height: 3mm;
+            position: absolute;
+        }
+
+        .corners::before {
+            top: -0.75pt;
+            left: -0.75pt;
+            border-top: 0.75pt solid #000;
+            border-left: 0.75pt solid #000;
+        }
+
+        .corners::after {
+            top: -0.75pt;
+            right: -0.75pt;
+            border-top: 0.75pt solid #000;
+            border-right: 0.75pt solid #000;
+        }
+
+        span::before {
+            bottom: -0.75pt;
+            left: -0.75pt;
+            border-bottom: 0.75pt solid #000;
+            border-left: 0.75pt solid #000;
+        }
+
+        span::after {
+            bottom: -0.75pt;
+            right: -0.75pt;
+            border-bottom: 0.75pt solid #000;
+            border-right: 0.75pt solid #000;
+        }
+
+
+        #rightPart br {
+            line-height: 11pt;
+        }
+
+        #leftPart br {
+            line-height: 9pt;
+        }
+
+        #slip, #leftPart, #rightPart {
+            display: grid;
+        }
+
+        #slip {
+            grid-template-columns: 52mm 56mm 87mm;
+            width: 200mm;
+            height: 95mm;
+            grid-gap: 5mm;
+            padding: 5mm;
+            border: 1px solid;
+        }
+
+        #leftPart {
+            grid-area: inherit;
+            grid-column: 1/2;
+            width: 113mm;
+            grid-template-rows: 7mm auto 14mm 18mm;
+            grid-template-columns: 14mm 14mm 24mm repeat(2, 5mm) 14mm 32mm;
+        }
+
+        #rightPart {
+            grid-column: 3/-1;
+            grid-template-columns: auto;
+            grid-template-rows: auto;
+        }
+
+        #receiptAccount {
+            grid-column: 1/4;
+            grid-row: 2/3;
+        }
+
+        #receiptTitle {
+            grid-area: 1 /1 / span 1 / span 3;
+        }
+
+        #receiptCurrencyTitle {
+            grid-column: 1/2;
+        }
+
+        #receiptCurrencyAmount {
+            grid-column: 2/4;
+        }
+
+        #receiptAcceptancePoint {
+            grid-column: 3/4;
+            text-align: right;
+        }
+
+        #paymentTitle, #paymentQrCode {
+            grid-column: 6/8;
+        }
+
+        #paymentTitle {
+            grid-row: 1/2;
+        }
+
+        #paymentQrCode {
+            grid-row: 2/3;
+        }
+
+        #paymentCurrencyTitle {
+            grid-row: 3/4;
+            grid-column: 6/7;
+        }
+
+        #receiptAcceptancePoint {
+            margin-right: 5mm;
+        }
+
+        #paymentCurrencyAmount {
+            /*grid-row: 5/6;*/
+            grid-row: 3/4;
+            grid-column: 7/8;
+        }
+
+        #paymentAccount {
+            grid-column: 1/2;
+        }
+
+        #paymentQrCode {
+            margin: 5mm;
+            width: 46mm;
+        }
+
+        .payment-part-data {
+            font-size: 10pt;
+        }
+    </style>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div id="slip">
+    <div id="leftPart">
+        <div id="receiptTitle">
+            <h1>{{receipt}}</h1>
+        </div>
+        <div id="receiptAccount" class="receipt-value">
+            <h4>{{payableTo}}</h4>
+            <p>{{recipientIban}}</p>
+            <p>{{recipientName}}</p>
+            <p>{{recipientStreet}} {{recipientNo}}</p>
+            <p>{{recipientPlz}} {{recipientCity}}</p>
+            <br>
+            <h4>{{ref}}</h4>
+            <p>{{recipientRef}}</p>
+            <br>
+            <h4>{{payableBy}}</h4>
+            {% if fromFirstName is not null %}
+                <div class="corners receipt-payable-by">
+                    <span></span>
+                </div>
+            {% else %}
+                <p>{{fromFirstName}} {{fromName}}</p>
+                <p>{{fromStreet}} {{fromNo}}</p>
+                <p>{{fromPlz}} {{fromCity}}</p>
+            {% endif %}
+        </div>
+        <div id="receiptCurrencyTitle">
+            <h4>W&auml;hrung</h4>
+            <p>{{currencyTitle.value}}</p>
+        </div>
+        <div id="receiptCurrencyAmount">
+            <h4>{{currencyAmountTitle}}</h4>
+            {% if currencyAmountTitle.value is not null %}
+            <div class="corners receipt-currency-amount">
+                <span>
+                </span>
+            </div>
+            {% else %}
+            <p>{{currencyAmountTitle.value}}</p>
+            {% endif %}
+        </div>
+        <div id="receiptAcceptancePoint">
+            <h4>{{acceptancePoint}}</h4>
+        </div>
+
+        <!--</div><div id="middlePart">-->
+        <div id="paymentTitle">
+            <h1>{{paymentTitle}}</h1>
+        </div>
+        <div id="paymentQrCode">
+            <img src="{{srcQrCode}}" alt="QR-Code">
+        </div>
+        <div id="paymentCurrencyTitle">
+            <h4>W&auml;hrung</h4>
+            <p>{{currencyTitle.value}}</p>
+        </div>
+        <div id="paymentCurrencyAmount">
+            <h4>{{currencyAmountTitle}}</h4>
+            {% if currencyAmountTitle.value is not null %}
+            <div class="corners payment-currency-amount">
+                <span>
+                </span>
+            </div>
+            {% else %}
+            <p>{{currencyAmountTitle.value}}</p>
+            {% endif %}
+        </div>
+    </div>
+    <div id="rightPart">
+        <div id="paymentAccount">
+            <h3>{{account}}</h3>
+            <p class="payment-part-data">{{recipientIban}}</p>
+            <p class="payment-part-data">{{recipientName}}</p>
+            <p class="payment-part-data">{{recipientStreet}} {{recipientNo}}</p>
+            <p class="payment-part-data">{{recipientPlz}} {{recipientCity}}</p>
+            <br>
+            <h3>{{ref}}</h3>
+            <p class="payment-part-data">{{paymentRef}}</p>
+            <br>
+            <h3>{{paymentAdditionalInfo}}</h3>
+            <p class="payment-part-data">Tex text text</p>
+            <br>
+
+            <h3>{{paymentPayableByTitle}}</h3>
+            {% if fromFirstName is not null %}
+            <div class="corners payment-payable-by">
+                <span>
+                </span>
+            </div>
+            {% else %}
+            <p class="payment-part-data">{{fromFirstName}} {{fromName}}</p>
+            <p class="payment-part-data">{{fromStreet}}{{fromNo}}</p>
+            <p class="payment-part-data">{{fromPlz}} {{fromCity}}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+</body>
+</html>
