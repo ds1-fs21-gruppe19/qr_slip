@@ -1,6 +1,8 @@
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{offset::Utc, Duration};
+use exec_rs::sync::MutexSync;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use warp::{Rejection, Reply};
 
@@ -100,66 +102,73 @@ pub async fn login_handler(request: LoginRequest) -> Result<impl Reply, Rejectio
     Ok(warp::reply::json(&response))
 }
 
+lazy_static! {
+    static ref USER_NAME_SYNC: MutexSync<String> = MutexSync::new();
+}
+
 pub async fn register_handler(
     user_registration: UserRegistration,
 ) -> Result<impl Reply, Rejection> {
-    let connection = match crate::CONNECTION_POOL.get() {
-        Ok(connection) => connection,
-        Err(_) => return Err(warp::reject::custom(Error::DatabaseConnectionError)),
-    };
+    // synchronise principal creation based on user_name
+    USER_NAME_SYNC.evaluate(user_registration.user_name.clone(), || {
+        let connection = match crate::CONNECTION_POOL.get() {
+            Ok(connection) => connection,
+            Err(_) => return Err(warp::reject::custom(Error::DatabaseConnectionError)),
+        };
 
-    let existing_count: Result<i64, _> = principal::table
-        .select(count(principal::pk))
-        .filter(principal::user_name.eq(&user_registration.user_name))
-        .first(&connection);
+        let existing_count: Result<i64, _> = principal::table
+            .select(count(principal::pk))
+            .filter(principal::user_name.eq(&user_registration.user_name))
+            .first(&connection);
 
-    match existing_count {
-        Ok(count) => {
-            if count != 0 {
-                return Err(warp::reject::custom(Error::PrincipalExists(
-                    user_registration.user_name,
-                )));
+        match existing_count {
+            Ok(count) => {
+                if count != 0 {
+                    return Err(warp::reject::custom(Error::PrincipalExists(
+                        user_registration.user_name,
+                    )));
+                }
             }
+            Err(_) => return Err(warp::reject::custom(Error::QueryError)),
+        };
+
+        let hashed_password = match hash(&user_registration.password, DEFAULT_COST) {
+            Ok(hashed_password) => hashed_password,
+            Err(_) => return Err(warp::reject::custom(Error::EncryptionError)),
+        };
+
+        let new_principal = NewPrincipal {
+            user_name: user_registration.user_name,
+            password: hashed_password,
+        };
+
+        let principal = match diesel::insert_into(principal::table)
+            .values(&new_principal)
+            .get_result::<Principal>(&connection)
+        {
+            Ok(principal) => principal,
+            Err(_) => return Err(warp::reject::custom(Error::QueryError)),
+        };
+
+        let new_user = NewUser {
+            first_name: user_registration.first_name,
+            last_name: user_registration.last_name,
+            address: user_registration.address,
+            zip_code: user_registration.zip_code,
+            city: user_registration.city,
+            iban: user_registration.iban,
+            country: user_registration.country,
+            fk_principal: principal.pk,
+        };
+
+        if diesel::insert_into(qr_user::table)
+            .values(&new_user)
+            .get_result::<User>(&connection)
+            .is_err()
+        {
+            return Err(warp::reject::custom(Error::QueryError));
         }
-        Err(_) => return Err(warp::reject::custom(Error::QueryError)),
-    };
 
-    let hashed_password = match hash(&user_registration.password, DEFAULT_COST) {
-        Ok(hashed_password) => hashed_password,
-        Err(_) => return Err(warp::reject::custom(Error::EncryptionError)),
-    };
-
-    let new_principal = NewPrincipal {
-        user_name: user_registration.user_name,
-        password: hashed_password,
-    };
-
-    let principal = match diesel::insert_into(principal::table)
-        .values(&new_principal)
-        .get_result::<Principal>(&connection)
-    {
-        Ok(principal) => principal,
-        Err(_) => return Err(warp::reject::custom(Error::QueryError)),
-    };
-
-    let new_user = NewUser {
-        first_name: user_registration.first_name,
-        last_name: user_registration.last_name,
-        address: user_registration.address,
-        zip_code: user_registration.zip_code,
-        city: user_registration.city,
-        iban: user_registration.iban,
-        country: user_registration.country,
-        fk_principal: principal.pk,
-    };
-
-    if diesel::insert_into(qr_user::table)
-        .values(&new_user)
-        .get_result::<User>(&connection)
-        .is_err()
-    {
-        return Err(warp::reject::custom(Error::QueryError));
-    }
-
-    Ok(warp::reply::reply())
+        Ok(warp::reply::reply())
+    })
 }
