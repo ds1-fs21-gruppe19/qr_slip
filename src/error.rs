@@ -5,7 +5,7 @@ use warp::{hyper::StatusCode, reject::Reject, Rejection, Reply};
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("invalid credentials")]
-    InvalidCredentials,
+    InvalidCredentialsError,
     #[error("Could not establish database connection")]
     DatabaseConnectionError,
     #[error("There has been an error executing a query")]
@@ -15,7 +15,17 @@ pub enum Error {
     #[error("There has been an error encrypting / decrypting a password")]
     EncryptionError,
     #[error("There already exists a principal with the given identifier: '{0}'")]
-    PrincipalExists(String),
+    PrincipalExistsError(String),
+    #[error("Failed to decode request header as valid utf8")]
+    UtfEncodingError,
+    #[error("The auth header is not formatted correctly (expected JWT 'Bearer ' header)")]
+    InvalidAuthHeaderError,
+    #[error("No auth header provided")]
+    MissingAuthHeaderError,
+    #[error("The request is not formatted correctly")]
+    BadRequestError,
+    #[error("The JWT is not or no longer valid")]
+    InvalidJwtError,
 }
 
 impl Reject for Error {}
@@ -29,8 +39,14 @@ struct ErrorResponse {
 pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(e) = err.find::<Error>() {
         let (code, message) = match e {
-            Error::InvalidCredentials => (StatusCode::FORBIDDEN, e.to_string()),
-            Error::PrincipalExists(_) => (StatusCode::BAD_REQUEST, e.to_string()),
+            Error::InvalidCredentialsError => (StatusCode::FORBIDDEN, e.to_string()),
+            Error::MissingAuthHeaderError | Error::InvalidJwtError => {
+                (StatusCode::UNAUTHORIZED, e.to_string())
+            }
+            Error::PrincipalExistsError(_)
+            | Error::UtfEncodingError
+            | Error::InvalidAuthHeaderError
+            | Error::BadRequestError => (StatusCode::BAD_REQUEST, e.to_string()),
             Error::DatabaseConnectionError
             | Error::QueryError
             | Error::JwtCreationError

@@ -9,8 +9,8 @@ table! {
 table! {
     qr_user (pk) {
         pk -> Int4,
-        first_name -> Varchar,
-        last_name -> Varchar,
+        first_name -> Nullable<Varchar>,
+        last_name -> Nullable<Varchar>,
         address -> Varchar,
         zip_code -> Varchar,
         city -> Varchar,

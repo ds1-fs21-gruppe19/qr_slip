@@ -6,8 +6,8 @@ CREATE TABLE principal(
 
 CREATE TABLE qr_user(
     pk SERIAL PRIMARY KEY,
-    first_name VARCHAR(255) NOT NULL,
-    last_name VARCHAR(255) NOT NULL,
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
     address VARCHAR(255) NOT NULL,
     zip_code VARCHAR(255) NOT NULL,
     city VARCHAR(255) NOT NULL,

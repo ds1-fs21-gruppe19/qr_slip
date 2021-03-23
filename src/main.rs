@@ -5,16 +5,20 @@ use std::str::FromStr;
 
 use diesel::{
     pg::PgConnection,
-    r2d2::{self, ConnectionManager, Pool},
+    r2d2::{self, ConnectionManager, Pool, PooledConnection},
 };
 use dotenv::dotenv;
 use lazy_static::lazy_static;
 use warp::Filter;
 
+use error::Error;
+
 pub mod auth;
 pub mod error;
 pub mod model;
 pub mod schema;
+
+pub type DbConnection = PooledConnection<ConnectionManager<PgConnection>>;
 
 lazy_static! {
     pub static ref CONNECTION_POOL: Pool<ConnectionManager<PgConnection>> = {
@@ -48,14 +52,40 @@ async fn main() {
         .and(warp::body::json())
         .and_then(auth::register_handler);
 
+    let create_user_route = warp::path("create-user")
+        .and(warp::post())
+        .and(auth::with_principal())
+        .and(warp::body::json())
+        .and_then(auth::create_user_handler);
+
+    let get_users_route = warp::path("users")
+        .and(warp::get())
+        .and(auth::with_principal())
+        .and_then(auth::get_users_handler);
+
+    let delete_users_route = warp::path("delete-users")
+        .and(warp::delete())
+        .and(auth::with_principal())
+        .and(warp::path::param())
+        .and_then(auth::delete_users_handler);
+
     let hello_world = warp::path("hello")
         .and(warp::get())
         .map(|| String::from("hello"));
 
     let routes = login_route
         .or(register_route)
+        .or(create_user_route)
+        .or(get_users_route)
+        .or(delete_users_route)
         .or(hello_world)
         .recover(error::handle_rejection);
 
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
+}
+
+pub fn acquire_db_connection() -> Result<DbConnection, warp::Rejection> {
+    CONNECTION_POOL
+        .get()
+        .map_err(|_| warp::reject::custom(Error::DatabaseConnectionError))
 }
