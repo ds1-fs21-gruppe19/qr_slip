@@ -18,6 +18,21 @@ def createQRCode(json, svgPath = "./QRCode.svg"):
 
     img = qrcode.make(qrMessage, image_factory = qrcode.image.svg.SvgImage)
     img.save(svgPath, "SVG")
+    f = open(svgPath, "r")
+    original = f.read()
+    f.close()
+    splitXml = original.split(">")
+    outputFile = ""
+    for line in splitXml[:-2]:
+        outputFile += line + ">\n"
+    outputFile += """<rect x="25.9mm" y="25.9mm" class="st0" width="9.2mm" height="9.2mm"/>\n<rect x="27.5mm" y="27.5mm" width="6mm" height="6mm"/>\n<rect x="28.5mm" y="30mm" class="st0" width="4mm" height="1mm"/>\n<rect x="30mm" y="28.5mm" class="st0" width="1mm" height="4mm"/>\n<style type="text/css">.st0{fill:#FFFFFF;}</style>"""
+    outputFile += splitXml[-2] + ">"
+
+    print(outputFile)
+
+    f = open("./output.svg" , "w")
+    f.write(outputFile)
+    f.close()
     return svgPath
 
 
@@ -43,5 +58,4 @@ data = {
 
 
 print(createQRCode(data))
-
 
