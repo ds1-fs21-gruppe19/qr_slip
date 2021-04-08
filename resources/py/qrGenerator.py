@@ -1,12 +1,10 @@
 import qrcode
 import qrcode.image.svg
-from PIL import Image
-
+import io
 
 def createQRCode(json, svgPath = "./QRCode.svg"):
 
-
-    qrMessage = "SPC\n0200\n1\n" + json["InvoiceInfo"]["Receiver_IBAN"].replace(' ', "") + """\nS\n""" + \
+    qrMessage = "SPC\n0200\n1\n"+json["InvoiceInfo"]["Receiver_IBAN"].replace(' ', "")+"""\nS\n"""+\
                 json["InvoiceInfo"]["Receiver_Name"] + "\n" + json["InvoiceInfo"]["Receiver_Street"].split(' ')[0] + \
                 "\n"  + json["InvoiceInfo"]["Receiver_Street"].split(' ')[1] + "\n" + \
                 json["InvoiceInfo"]["Receiver_City"][:4] + "\n" + json["InvoiceInfo"]["Receiver_City"][4:].replace(' ', "") + \
@@ -17,23 +15,24 @@ def createQRCode(json, svgPath = "./QRCode.svg"):
                 "\n" + "CH\nNON\n\n" + json["InvoiceInfo"]["AdditionalInfo"] + "\nEPD"
 
     img = qrcode.make(qrMessage, image_factory = qrcode.image.svg.SvgImage)
-    img.save(svgPath, "SVG")
-    f = open(svgPath, "r")
-    original = f.read()
-    f.close()
-    splitXml = original.split(">")
-    outputFile = ""
-    for line in splitXml[:-2]:
+    buffered = io.BytesIO()
+    img.save(buffered, "SVG")
+
+    splitXml = str(buffered.getvalue()).split(">")
+
+    outputFile = """<?xml version='1.0' encoding='UTF-8'?>\n<svg width="61mm" height="61mm" version="1.1" xmlns="http://www.w3.org/2000/svg">"""
+
+    for line in splitXml[2:-2]:
         outputFile += line + ">\n"
+
     outputFile += """<rect x="25.9mm" y="25.9mm" class="st0" width="9.2mm" height="9.2mm"/>\n<rect x="27.5mm" y="27.5mm" width="6mm" height="6mm"/>\n<rect x="28.5mm" y="30mm" class="st0" width="4mm" height="1mm"/>\n<rect x="30mm" y="28.5mm" class="st0" width="1mm" height="4mm"/>\n<style type="text/css">.st0{fill:#FFFFFF;}</style>"""
     outputFile += splitXml[-2] + ">"
 
-    print(outputFile)
-
-    f = open("./output.svg" , "w")
+    f = open("./newQrCode.svg", "w")
     f.write(outputFile)
     f.close()
     return svgPath
+
 
 
 data = {
@@ -55,6 +54,9 @@ data = {
             "NumberOfPages" : 1
         }
     }
+
+
+
 
 
 print(createQRCode(data))
