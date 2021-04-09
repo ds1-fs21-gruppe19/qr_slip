@@ -4,18 +4,23 @@ use exec_rs::sync::MutexSync;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use warp::{
     filters::header::headers_cloned,
-    http::header::{self, HeaderMap},
+    http::{
+        header::{self, HeaderMap},
+        Response, StatusCode,
+    },
     Filter, Rejection, Reply,
 };
 
 use crate::{
     acquire_db_connection,
-    diesel::{ExpressionMethods, QueryDsl, RunQueryDsl},
+    diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl},
     error::Error,
-    model::{NewPrincipal, NewUser, Principal, User},
-    schema::{principal, qr_user},
+    model::{NewPrincipal, NewRefreshToken, NewUser, Principal, RefreshToken, User},
+    schema::{principal, qr_user, refresh_token},
+    DbConnection,
 };
 use diesel::{dsl::count, expression::dsl::any, expression_methods::BoolExpressionMethods};
 
@@ -28,6 +33,7 @@ pub struct LoginRequest {
 #[derive(Serialize)]
 pub struct LoginResponse {
     pub token: String,
+    pub expiration_secs: i64,
 }
 
 #[derive(Deserialize)]
@@ -125,8 +131,51 @@ pub async fn login_handler(request: LoginRequest) -> Result<impl Reply, Rejectio
         Err(_) => return Err(warp::reject::custom(Error::QueryError)),
     };
 
+    let refresh_token_cookie = create_refresh_token_cookie(&principal, &connection)?;
+    create_login_response(&principal, refresh_token_cookie)
+}
+
+fn create_refresh_token_cookie(
+    principal: &Principal,
+    connection: &DbConnection,
+) -> Result<String, Rejection> {
+    let uuid = Uuid::new_v4();
+    let current_utc = Utc::now();
+    let expiry = current_utc + Duration::hours(24);
+
+    let new_refresh_token = NewRefreshToken {
+        uuid: uuid.clone(),
+        expiry,
+        invalidated: false,
+        fk_principal: principal.pk,
+    };
+
+    let refresh_token = match diesel::insert_into(refresh_token::table)
+        .values(&new_refresh_token)
+        .get_result::<RefreshToken>(connection)
+    {
+        Ok(refresh_token) => refresh_token,
+        Err(_) => return Err(warp::reject::custom(Error::QueryError)),
+    };
+
+    let uuid = refresh_token.uuid.to_string();
+    let expiry = refresh_token.expiry.to_rfc2822();
+
+    // TODO set Secure once moving to production
+    Ok(format!(
+        "refresh_token={}; Expires={}; HttpOnly",
+        uuid, expiry
+    ))
+}
+
+fn create_login_response(
+    principal: &Principal,
+    refresh_token_cookie: String,
+) -> Result<impl Reply, Rejection> {
+    let expiration_period = Duration::minutes(15);
+    let expiration_secs = expiration_period.num_seconds();
     let expiration = Utc::now()
-        .checked_add_signed(Duration::minutes(30))
+        .checked_add_signed(Duration::minutes(15))
         .expect("Invalid timestamp")
         .timestamp();
 
@@ -145,9 +194,63 @@ pub async fn login_handler(request: LoginRequest) -> Result<impl Reply, Rejectio
         Err(_) => return Err(warp::reject::custom(Error::JwtCreationError)),
     };
 
-    let response = LoginResponse { token };
+    let json_response = serde_json::to_vec(&LoginResponse {
+        token,
+        expiration_secs,
+    })
+    .map_err(|_| warp::reject::custom(Error::SerialisationError))?;
 
-    Ok(warp::reply::json(&response))
+    let response_body = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::SET_COOKIE, refresh_token_cookie)
+        .body(json_response)
+        .map_err(|_| warp::reject::custom(Error::SerialisationError))?;
+
+    Ok(response_body)
+}
+
+pub async fn refresh_login_handler(refresh_token: String) -> Result<impl Reply, Rejection> {
+    let connection = acquire_db_connection()?;
+    let curr_token_uuid = Uuid::parse_str(&refresh_token)
+        .map_err(|_| warp::reject::custom(Error::BadRequestError))?;
+    let current_utc = Utc::now();
+
+    let refresh_token = refresh_token::table
+        .filter(
+            refresh_token::uuid
+                .eq(&curr_token_uuid)
+                .and(refresh_token::expiry.ge(&current_utc))
+                .and(refresh_token::invalidated.eq(false)),
+        )
+        .first::<RefreshToken>(&connection)
+        .optional()
+        .map_err(|_| warp::reject::custom(Error::QueryError))?
+        .ok_or_else(|| warp::reject::custom(Error::InvalidRefreshTokenError))?;
+
+    let principal = principal::table
+        .filter(principal::pk.eq(refresh_token.fk_principal))
+        .first::<Principal>(&connection)
+        .map_err(|_| warp::reject::custom(Error::QueryError))?;
+
+    let expiry = current_utc + Duration::hours(24);
+    let new_token = Uuid::new_v4();
+
+    let updated_token = diesel::update(refresh_token::table)
+        .filter(refresh_token::pk.eq(refresh_token.pk))
+        .set((
+            refresh_token::uuid.eq(new_token),
+            refresh_token::expiry.eq(expiry),
+        ))
+        .get_result::<RefreshToken>(&connection)
+        .map_err(|_| warp::reject::custom(Error::QueryError))?;
+
+    let uuid = updated_token.uuid.to_string();
+    let expiry = updated_token.expiry.to_rfc2822();
+
+    // TODO set Secure once moving to production
+    let refresh_token_cookie = format!("refresh_token={}; Expires={}; HttpOnly", uuid, expiry);
+
+    create_login_response(&principal, refresh_token_cookie)
 }
 
 lazy_static! {

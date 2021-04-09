@@ -20,6 +20,17 @@ table! {
     }
 }
 
-joinable!(qr_user -> principal (fk_principal));
+table! {
+    refresh_token (pk) {
+        pk -> Int4,
+        uuid -> Uuid,
+        expiry -> Timestamptz,
+        invalidated -> Bool,
+        fk_principal -> Int4,
+    }
+}
 
-allow_tables_to_appear_in_same_query!(principal, qr_user,);
+joinable!(qr_user -> principal (fk_principal));
+joinable!(refresh_token -> principal (fk_principal));
+
+allow_tables_to_appear_in_same_query!(principal, qr_user, refresh_token,);

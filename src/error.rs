@@ -26,6 +26,10 @@ pub enum Error {
     BadRequestError,
     #[error("The JWT is not or no longer valid")]
     InvalidJwtError,
+    #[error("Failed to serialise data")]
+    SerialisationError,
+    #[error("The provided refresh token is invalid")]
+    InvalidRefreshTokenError,
 }
 
 impl Reject for Error {}
@@ -40,9 +44,9 @@ pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(e) = err.find::<Error>() {
         let (code, message) = match e {
             Error::InvalidCredentialsError => (StatusCode::FORBIDDEN, e.to_string()),
-            Error::MissingAuthHeaderError | Error::InvalidJwtError => {
-                (StatusCode::UNAUTHORIZED, e.to_string())
-            }
+            Error::MissingAuthHeaderError
+            | Error::InvalidJwtError
+            | Error::InvalidRefreshTokenError => (StatusCode::UNAUTHORIZED, e.to_string()),
             Error::PrincipalExistsError(_)
             | Error::UtfEncodingError
             | Error::InvalidAuthHeaderError
@@ -50,7 +54,8 @@ pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
             Error::DatabaseConnectionError
             | Error::QueryError
             | Error::JwtCreationError
-            | Error::EncryptionError => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            | Error::EncryptionError
+            | Error::SerialisationError => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         };
 
         let err_response = ErrorResponse {

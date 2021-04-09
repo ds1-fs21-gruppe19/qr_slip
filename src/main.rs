@@ -47,6 +47,11 @@ async fn main() {
         .and(warp::body::json())
         .and_then(auth::login_handler);
 
+    let refresh_login_router = warp::path("refresh-login")
+        .and(warp::post())
+        .and(warp::cookie("refresh_token"))
+        .and_then(auth::refresh_login_handler);
+
     let register_route = warp::path("register")
         .and(warp::post())
         .and(warp::body::json())
@@ -69,16 +74,12 @@ async fn main() {
         .and(warp::path::param())
         .and_then(auth::delete_users_handler);
 
-    let hello_world = warp::path("hello")
-        .and(warp::get())
-        .map(|| String::from("hello"));
-
     let routes = login_route
+        .or(refresh_login_router)
         .or(register_route)
         .or(create_user_route)
         .or(get_users_route)
         .or(delete_users_route)
-        .or(hello_world)
         .recover(error::handle_rejection);
 
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
