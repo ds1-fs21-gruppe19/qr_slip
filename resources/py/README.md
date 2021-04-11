@@ -3,10 +3,11 @@
 ### createQRCode
 
 Die Funktion **createQRCode** erstellt aus der json Sturktur einen QRCode welcher dann als svg gespeichert wird.
-
+##### Funktions Signatur:
 ```
 def createQRCode(json, svgPath = "./QRCode.svg"):
 ```
+##### Paramerter:
 - json -> json Struktur
 - svgPath -> speicher Pfad des erstellen svg files
 
@@ -32,5 +33,6 @@ def createQRCode(json, svgPath = "./QRCode.svg"):
         }
     }
 ```
+##### generierter QRCode:
 ![Invoice Modul](newQrCode.svg)
 
