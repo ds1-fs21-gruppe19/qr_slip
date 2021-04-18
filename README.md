@@ -1,5 +1,14 @@
 # The backend for the qr_slip project
 
+## Setup with Docker
+
+* run `docker-compose up --build` from root directory.
+Docker-compose will create:
+* postgres container and run the sql/db.sql file to add all tables and relations.
+* rust container (base on debian `rust:latest`)
+
+After that you should be able to send requests to `localhost:80`
+
 ## Setup
 
 * For Diesel to be able to connect to the postgres database, the `DATABASE_URL` environment variable must be set,
