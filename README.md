@@ -3,6 +3,7 @@
 ## Setup with Docker
 
 * run `docker-compose up --build` from root directory.
+
 Docker-compose will create:
 * postgres container and run the sql/db.sql file to add all tables and relations.
 * rust container (base on debian `rust:latest`)
