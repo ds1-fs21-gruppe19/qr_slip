@@ -82,7 +82,7 @@ async fn main() {
         .or(delete_users_route)
         .recover(error::handle_rejection);
 
-    warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
+    warp::serve(routes).run(([0, 0, 0, 0], 8000)).await;
 }
 
 pub fn acquire_db_connection() -> Result<DbConnection, warp::Rejection> {
