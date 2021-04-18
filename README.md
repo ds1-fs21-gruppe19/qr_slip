@@ -6,9 +6,9 @@
 
 Docker-compose will create:
 1. postgres container and run the sql/db.sql file to add all tables and relations.
-2. rust container (base on debian `rust:latest`)
+2. rust container (base on debian `rust:latest`).
 
-After that you should be able to send requests to `localhost:80`
+After that you should be able to send requests to `localhost:80`.
 
 ## Setup
 
