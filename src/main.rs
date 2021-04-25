@@ -1,6 +1,10 @@
 #[macro_use]
 extern crate diesel;
 
+#[cfg(feature = "auto_migration")]
+#[macro_use]
+extern crate diesel_migrations;
+
 use std::str::FromStr;
 
 use diesel::{
@@ -39,9 +43,22 @@ lazy_static! {
     };
 }
 
+#[cfg(feature = "auto_migration")]
+diesel_migrations::embed_migrations!();
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+
+    #[cfg(feature = "auto_migration")]
+    {
+        let connection = acquire_db_connection().expect("Failed to acquire database connection");
+        if let Err(e) = embedded_migrations::run_with_output(&connection, &mut std::io::stdout()) {
+            eprintln!("Failed running db migrations: {}", e);
+            return;
+        }
+    }
+
     let login_route = warp::path("login")
         .and(warp::post())
         .and(warp::body::json())

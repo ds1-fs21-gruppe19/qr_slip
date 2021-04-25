@@ -33,8 +33,4 @@ table! {
 joinable!(qr_user -> principal (fk_principal));
 joinable!(refresh_token -> principal (fk_principal));
 
-allow_tables_to_appear_in_same_query!(
-    principal,
-    qr_user,
-    refresh_token,
-);
+allow_tables_to_appear_in_same_query!(principal, qr_user, refresh_token,);
