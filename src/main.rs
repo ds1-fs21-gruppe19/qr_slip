@@ -99,7 +99,8 @@ async fn main() {
         .or(create_user_route)
         .or(get_users_route)
         .or(delete_users_route)
-        .recover(error::handle_rejection);
+        .recover(error::handle_rejection)
+        .with(warp::log("qr_slip::api"));
 
     warp::serve(routes).run(([0, 0, 0, 0], 8000)).await;
 }
@@ -117,10 +118,10 @@ fn setup_logger() {
         println!("Created missing /logs dir");
     }
 
-    let logging_level = if cfg!(debug_assertions) {
-        log::LevelFilter::Debug
+    let (logging_level, api_logging_level) = if cfg!(debug_assertions) {
+        (log::LevelFilter::Debug, log::LevelFilter::Debug)
     } else {
-        log::LevelFilter::Info
+        (log::LevelFilter::Info, log::LevelFilter::Warn)
     };
 
     fern::Dispatch::new()
@@ -134,6 +135,7 @@ fn setup_logger() {
             ))
         })
         .level(logging_level)
+        .level_for("qr_slip::api", api_logging_level)
         .chain(std::io::stdout())
         .chain(fern::DateBased::new("logs/", "logs_%Y-%W.log"))
         .apply()
