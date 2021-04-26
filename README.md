@@ -18,15 +18,21 @@ After that you should be able to send requests to `localhost:80`.
 
 These properties can be set locally in the .env file in the project directory for development.
 
-To run schema migrations or create the initial database schema, run `diesel migration run`. When going live on production
-it makes sense to enable running migrations on startup, but for development I'll stick to manual migrations for now.
+To run schema migrations or create the initial database schema, run `diesel migration run`. When using the `auto_migration`
+feature, migrations are executed at startup automatically, which should be the case when running the service in production,
+see the run chapter.
 
 To compile the project install the latest stable version of rust using [rustup](https://rustup.rs/), then run
 `cargo build` to compile debug binaries or run `cargo build --release` to compile release binaries.
 
 ## Run
 
-The binary can be executed by running `cargo run --release` in this directory.
+The binary can be executed by running `cargo run --release` in this directory. Running the debug binaries using
+`cargo run` enables additional logging messages (all loggers set to level DEBUG, whereas the logger qr_slip::api,
+which logs api requests, is set to WARN and other loggers are set to INFO when using release binaries).
+
+When running in production, the feature `auto_migration` should be enabled so that migrations run at startup automatically
+using `cargo run --release --features auto_migration`.
 
 ## Endpoints
 
