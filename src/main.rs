@@ -50,6 +50,8 @@ diesel_migrations::embed_migrations!();
 async fn main() {
     dotenv().ok();
 
+    setup_logger();
+
     #[cfg(feature = "auto_migration")]
     {
         let connection = acquire_db_connection().expect("Failed to acquire database connection");
@@ -106,4 +108,34 @@ pub fn acquire_db_connection() -> Result<DbConnection, warp::Rejection> {
     CONNECTION_POOL
         .get()
         .map_err(|_| warp::reject::custom(Error::DatabaseConnectionError))
+}
+
+fn setup_logger() {
+    // create logs dir as fern does not appear to handle that itself
+    if !std::path::Path::new("logs/").exists() {
+        std::fs::create_dir("logs").expect("Failed to create logs/ directory");
+        println!("Created missing /logs dir");
+    }
+
+    let logging_level = if cfg!(debug_assertions) {
+        log::LevelFilter::Debug
+    } else {
+        log::LevelFilter::Info
+    };
+
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{}]{}[{}] {}",
+                record.level(),
+                chrono::Local::now().format("[%Y-%m-%d %H:%M:%S]"),
+                record.target(),
+                message
+            ))
+        })
+        .level(logging_level)
+        .chain(std::io::stdout())
+        .chain(fern::DateBased::new("logs/", "logs_%Y-%W.log"))
+        .apply()
+        .expect("Failed to set up logging");
 }
