@@ -1,29 +1,97 @@
-version: '3.6'
+version: "3.6"
 services:
   db:
     image: postgres:latest
     container_name: db
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready-U postgres" ]
+      test: ["CMD-SHELL", "pg_isready-U postgres"]
       timeout: 10s
       interval: 5s
       retries: 15
     restart: always
-    environment: 
+    environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: qr_slip
-    ports: 
+    ports:
       - "5432:5432"
     volumes:
       - ./sql:/docker-entrypoint-initdb.d/
-  qr_slip:
-    container_name: qr_slip
+    networks:
+      - internal
+  service_1:
+    container_name: service_1
     build: .
-    environment: 
+    environment:
       JWT_SECRET: 165434867894
       DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
-    ports: 
-      - 127.0.0.1:80:8000
+    ports:
+      - 8000:8000
     depends_on:
       - db
+    networks:
+      - internal
+    # deploy:
+    #   mode: replicated
+    #   replicas: 2
+  service_2:
+    container_name: service_2
+    build: .
+    environment:
+      JWT_SECRET: 165434867894
+      DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+    networks:
+      - internal
+  lb:
+    image: nginx:alpine
+    ports:
+      - 80:80
+    volumes:
+      - "./default.conf:/etc/nginx/conf.d/default.conf"
+    depends_on:
+      - service_1
+      - service_2
+    networks:
+      - internal
+      - external
+    command: [nginx-debug, "-g", "daemon off;"]
+  frontend:
+    build: ../Front-end
+    ports:
+      - 3000:3000
+    networks:
+      - internal
+
+networks:
+  external:
+  internal:
+    internal: true
+
+  # service_1:
+  #     #container_name: qr_slip
+  #   build: .
+  #   environment:
+  #     JWT_SECRET: 165434867894
+  #     DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
+  #   ports:
+  #     - 80:8000
+  #   depends_on:
+  #     - db
+  #   networks:
+  #     - internal
+  # service_2:
+  #       #container_name: qr_slip
+  #   build: .
+  #   environment:
+  #     JWT_SECRET: 165434867894
+  #     DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
+  #   ports:
+  #     - 81:8000
+  #   depends_on:
+  #     - db
+  #   networks:
+  #     - internal
