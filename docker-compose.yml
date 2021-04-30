@@ -70,28 +70,3 @@ networks:
   external:
   internal:
     internal: true
-
-  # service_1:
-  #     #container_name: qr_slip
-  #   build: .
-  #   environment:
-  #     JWT_SECRET: 165434867894
-  #     DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
-  #   ports:
-  #     - 80:8000
-  #   depends_on:
-  #     - db
-  #   networks:
-  #     - internal
-  # service_2:
-  #       #container_name: qr_slip
-  #   build: .
-  #   environment:
-  #     JWT_SECRET: 165434867894
-  #     DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
-  #   ports:
-  #     - 81:8000
-  #   depends_on:
-  #     - db
-  #   networks:
-  #     - internal
