@@ -1,6 +1,10 @@
 #[macro_use]
 extern crate diesel;
 
+#[cfg(feature = "auto_migration")]
+#[macro_use]
+extern crate diesel_migrations;
+
 use std::str::FromStr;
 
 use diesel::{
@@ -39,9 +43,24 @@ lazy_static! {
     };
 }
 
+#[cfg(feature = "auto_migration")]
+diesel_migrations::embed_migrations!();
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+
+    setup_logger();
+
+    #[cfg(feature = "auto_migration")]
+    {
+        let connection = acquire_db_connection().expect("Failed to acquire database connection");
+        if let Err(e) = embedded_migrations::run_with_output(&connection, &mut std::io::stdout()) {
+            eprintln!("Failed running db migrations: {}", e);
+            return;
+        }
+    }
+
     let login_route = warp::path("login")
         .and(warp::post())
         .and(warp::body::json())
@@ -80,7 +99,8 @@ async fn main() {
         .or(create_user_route)
         .or(get_users_route)
         .or(delete_users_route)
-        .recover(error::handle_rejection);
+        .recover(error::handle_rejection)
+        .with(warp::log("qr_slip::api"));
 
     warp::serve(routes).run(([0, 0, 0, 0], 8000)).await;
 }
@@ -89,4 +109,35 @@ pub fn acquire_db_connection() -> Result<DbConnection, warp::Rejection> {
     CONNECTION_POOL
         .get()
         .map_err(|_| warp::reject::custom(Error::DatabaseConnectionError))
+}
+
+fn setup_logger() {
+    // create logs dir as fern does not appear to handle that itself
+    if !std::path::Path::new("logs/").exists() {
+        std::fs::create_dir("logs").expect("Failed to create logs/ directory");
+        println!("Created missing /logs dir");
+    }
+
+    let (logging_level, api_logging_level) = if cfg!(debug_assertions) {
+        (log::LevelFilter::Debug, log::LevelFilter::Debug)
+    } else {
+        (log::LevelFilter::Info, log::LevelFilter::Warn)
+    };
+
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{}]{}[{}] {}",
+                record.level(),
+                chrono::Local::now().format("[%Y-%m-%d %H:%M:%S]"),
+                record.target(),
+                message
+            ))
+        })
+        .level(logging_level)
+        .level_for("qr_slip::api", api_logging_level)
+        .chain(std::io::stdout())
+        .chain(fern::DateBased::new("logs/", "logs_%Y-%W.log"))
+        .apply()
+        .expect("Failed to set up logging");
 }

@@ -55,7 +55,10 @@ pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
             | Error::QueryError
             | Error::JwtCreationError
             | Error::EncryptionError
-            | Error::SerialisationError => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            | Error::SerialisationError => {
+                log::error!("Encountered internal server error: {}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            }
         };
 
         let err_response = ErrorResponse {
