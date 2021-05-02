@@ -5,6 +5,7 @@
 * run `docker-compose up --build` from root directory.
 
 Docker-compose will create:
+
 1. postgres container and run the sql/db.sql file to add all tables and relations.
 2. rust container (base on debian `rust:latest`).
 
@@ -35,6 +36,7 @@ the build script build.rs adds the linker argument for the lib directory on that
 has been added to the path so that the dll can be found at runtime.
 
 *for example, on ubuntu 20.04 run
+
 ```bash
 wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.focal_amd64.deb
 sudo apt install ./wkhtmltox_0.12.6-1.focal_amd64.deb
@@ -273,10 +275,11 @@ pub struct QrData {
 ```
 
 The `reference_type` must be one of the following items:
- * QRR, which must be used if the `creditor_iban` is a QR-IBAN and requires that `reference_number` is set to a 27 digit numerical value
- * SCOR, which must be used if the `creditor_iban` is an IBAN and `reference_number` is set (in that case the
+
+* QRR, which must be used if the `creditor_iban` is a QR-IBAN and requires that `reference_number` is set to a 27 digit numerical value
+* SCOR, which must be used if the `creditor_iban` is an IBAN and `reference_number` is set (in that case the
    `reference_number` must be a 5 - 25 digit alphanumerical value)
- * NON, which must be used if the `reference_number` is not set or empty
+* NON, which must be used if the `reference_number` is not set or empty
 
 These conditions and length restrictions for each field are verified and the endpoint returns a 400 BAD REQUEST on violation.
 
