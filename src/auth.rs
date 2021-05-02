@@ -38,8 +38,7 @@ pub struct LoginResponse {
 
 #[derive(Deserialize)]
 pub struct UserRegistration {
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
+    pub name: String,
     pub address: String,
     pub zip_code: String,
     pub city: String,
@@ -299,8 +298,7 @@ pub async fn register_handler(
         };
 
         let new_user = NewUser {
-            first_name: user_registration.first_name,
-            last_name: user_registration.last_name,
+            name: user_registration.name,
             address: user_registration.address,
             zip_code: user_registration.zip_code,
             city: user_registration.city,
@@ -323,8 +321,7 @@ pub async fn register_handler(
 
 #[derive(Deserialize)]
 pub struct CreateUser {
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
+    pub name: String,
     pub address: String,
     pub zip_code: String,
     pub city: String,
@@ -339,8 +336,7 @@ pub async fn create_user_handler(
     let connection = acquire_db_connection()?;
 
     let new_user = NewUser {
-        first_name: create_user.first_name,
-        last_name: create_user.last_name,
+        name: create_user.name,
         address: create_user.address,
         zip_code: create_user.zip_code,
         city: create_user.city,

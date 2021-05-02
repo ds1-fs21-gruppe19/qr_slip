@@ -119,19 +119,18 @@ can be deserialized to the following struct:
 
 ```rust
 pub struct UserRegistration {
-   pub first_name: Option<String>,
-   pub last_name: Option<String>,
-   pub address: String,
-   pub zip_code: String,
-   pub city: String,
-   pub iban: String,
-   pub country: String,
-   pub user_name: String,
-   pub password: String,
+    pub name: String,
+    pub address: String,
+    pub zip_code: String,
+    pub city: String,
+    pub iban: String,
+    pub country: String,
+    pub user_name: String,
+    pub password: String,
 }
 ```
 
-Note that first_name and last_name are optional fields.
+Name is either the full name of a natural person or the name of a company.
 
 If the user_name for the principal is already taken, the server responds with the following JSON and a 400 status code:
 
@@ -148,13 +147,12 @@ If the request succeeded and the user and principal have been created the server
 
 POST request.
 
-Create a new User for the currently signed in principal. Requires an authorization header containing a JWT in the form
+Create a new User for the currently signed-in principal. Requires an authorization header containing a JWT in the form
 of "Bearer TOKEN" and expects a JSON body that can be deserialized to the following struct:
 
 ```rust
 pub struct CreateUser {
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
+    pub name: String,
     pub address: String,
     pub zip_code: String,
     pub city: String,
@@ -163,7 +161,7 @@ pub struct CreateUser {
 }
 ```
 
-Note that first_name and last_name are optional fields.
+Name is either the full name of a natural person or the name of a company.
 
 Simply returns a 200 if the operation was successful.
 
@@ -186,8 +184,7 @@ Example response:
 [
     {
         "pk": 2,
-        "first_name": "Test",
-        "last_name": "User",
+        "name": "Test User",
         "address": "Downing Street 10",
         "zip_code": "SW1",
         "city": "London",
@@ -195,9 +192,8 @@ Example response:
         "country": "UK"
     },
     {
-        "pk": 5,
-        "first_name": null,
-        "last_name": null,
+        "pk": 3,
+        "name": "Reynholm Industries",
         "address": "Thomas More St",
         "zip_code": "E1W 1YW",
         "city": "London",
@@ -211,43 +207,32 @@ Example response:
 
 DELETE request.
 
-Deletes all users where the principal matches the currently logged in principal and the primary key is included in the request.
-Returns a json containing all users that have been deleted.
+Deletes all users where the principal matches the currently logged-in principal, and the primary key is included in the request.
+Returns a json containing all users that have been deleted. Invalid primary keys that either do not exist or describe
+entities that do not belong to the current principal are ignored.
 
-For example `/delete-users/6,8,9` might return this:
+For example `/delete-users/8,9,10,11` might return this if pk 9 does not exist and pk 10 does not belong to the current principal:
 
 ```json
 [
-    {
-        "pk": 6,
-        "first_name": null,
-        "last_name": null,
-        "address": "todel",
-        "zip_code": "E1W 1YW",
-        "city": "London",
-        "iban": "iban",
-        "country": "CH"
-    },
-    {
-        "pk": 8,
-        "first_name": null,
-        "last_name": null,
-        "address": "todel",
-        "zip_code": "E1W 1YW",
-        "city": "London",
-        "iban": "iban",
-        "country": "CH"
-    },
-    {
-        "pk": 9,
-        "first_name": null,
-        "last_name": null,
-        "address": "todel",
-        "zip_code": "E1W 1YW",
-        "city": "London",
-        "iban": "iban",
-        "country": "CH"
-    }
+  {
+    "pk": 8,
+    "name": "todel",
+    "address": "todel",
+    "zip_code": "E1W 1YW",
+    "city": "London",
+    "iban": "iban",
+    "country": "UK"
+  },
+  {
+    "pk": 11,
+    "name": "todel2",
+    "address": "todel2",
+    "zip_code": "E1W 1YW",
+    "city": "London",
+    "iban": "iban",
+    "country": "UK"
+  }
 ]
 ```
 
