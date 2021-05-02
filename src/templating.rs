@@ -151,11 +151,7 @@ impl QrData {
 }
 
 pub async fn generate_slip_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
-    for qr_data in qr_data_vec.iter_mut() {
-        qr_data.verify()?;
-    }
-
-    let qr_svg_vec = generate_qr_svg_for_all(&qr_data_vec)?;
+    let qr_svg_vec = generate_qr_svg_for_all(&mut qr_data_vec)?;
     let html = generate_html_slip(qr_data_vec, qr_svg_vec)?;
     let pdf = PDF_APPLICATION_WORKER
         .generate_pdf_from_html(html)
@@ -166,8 +162,8 @@ pub async fn generate_slip_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl 
 }
 
 #[cfg(debug_assertions)]
-pub async fn dbg_qr_pdf_handler(qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
-    let qr_svg_vec = generate_qr_svg_for_all(&qr_data_vec)?;
+pub async fn dbg_qr_pdf_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
+    let qr_svg_vec = generate_qr_svg_for_all(&mut qr_data_vec)?;
     let html = generate_html_slip(qr_data_vec, qr_svg_vec)?;
     let pdf = PDF_APPLICATION_WORKER
         .generate_pdf_from_html(html)
@@ -180,8 +176,8 @@ pub async fn dbg_qr_pdf_handler(qr_data_vec: Vec<QrData>) -> Result<impl Reply, 
 }
 
 #[cfg(debug_assertions)]
-pub async fn dbg_qr_html_handler(qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
-    let qr_svg_vec = generate_qr_svg_for_all(&qr_data_vec)?;
+pub async fn dbg_qr_html_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
+    let qr_svg_vec = generate_qr_svg_for_all(&mut qr_data_vec)?;
     let html = generate_html_slip(qr_data_vec, qr_svg_vec)?;
 
     save_bytes_to_file(html.as_bytes(), "html")?;
@@ -190,7 +186,8 @@ pub async fn dbg_qr_html_handler(qr_data_vec: Vec<QrData>) -> Result<impl Reply,
 }
 
 #[cfg(debug_assertions)]
-pub async fn dbg_qr_svg_handler(qr_data: QrData) -> Result<impl Reply, Rejection> {
+pub async fn dbg_qr_svg_handler(mut qr_data: QrData) -> Result<impl Reply, Rejection> {
+    qr_data.verify()?;
     let qr_svg = generate_qr_svg(&qr_data)?;
 
     save_bytes_to_file(qr_svg.as_bytes(), "svg")?;
@@ -217,10 +214,13 @@ fn save_bytes_to_file(bytes: &[u8], extension: &str) -> Result<(), Rejection> {
     Ok(())
 }
 
-pub fn generate_qr_svg_for_all(qr_data_vec: &[QrData]) -> Result<Vec<String>, Rejection> {
+pub fn generate_qr_svg_for_all(qr_data_vec: &mut [QrData]) -> Result<Vec<String>, Rejection> {
     qr_data_vec
-        .iter()
-        .map(|qr_data| generate_qr_svg(qr_data))
+        .iter_mut()
+        .map(|qr_data| {
+            qr_data.verify()?;
+            generate_qr_svg(qr_data)
+        })
         .collect::<Result<Vec<String>, Rejection>>()
 }
 
