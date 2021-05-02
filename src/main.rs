@@ -179,7 +179,6 @@ fn setup_logger() {
     // create logs dir as fern does not appear to handle that itself
     if !std::path::Path::new("logs/").exists() {
         std::fs::create_dir("logs").expect("Failed to create logs/ directory");
-        log::info!("Created missing /logs dir");
     }
 
     let (logging_level, api_logging_level) = if cfg!(debug_assertions) {
