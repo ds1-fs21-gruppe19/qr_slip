@@ -26,6 +26,20 @@ To run schema migrations or create the initial database schema, run `diesel migr
 feature, migrations are executed at startup automatically, which should be the case when running the service in production,
 see the run chapter.
 
+Compiling requires [wkhtmltopdf](https://wkhtmltopdf.org/downloads.html) to be installed. On Arch / Manjaro Linux installing
+the wkhtmltopdf package from the community repo should suffice, on Debian based distros the included wkhtmltopdf package
+does not seem to contain the library, so you might want to download and install the .deb package* provided by wkhtmltopdf.
+Additionally, you might need to install python3.8-dev and libpq-dev. On macOS, downloading and installing the .pkg from
+the website should suffice. On Windows, download the installer and install wkhtmltopdf to `C:\Program Files\wkhtmltopdf`,
+the build script build.rs adds the linker argument for the lib directory on that platform, and make sure that `C:\Program Files\wkhtmltopdf\bin`
+has been added to the path so that the dll can be found at runtime.
+
+*for example, on ubuntu 20.04 run
+```bash
+wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.focal_amd64.deb
+sudo apt install ./wkhtmltox_0.12.6-1.focal_amd64.deb
+```
+
 To compile the project install the latest stable version of rust using [rustup](https://rustup.rs/), then run
 `cargo build` to compile debug binaries or run `cargo build --release` to compile release binaries.
 
@@ -33,7 +47,8 @@ To compile the project install the latest stable version of rust using [rustup](
 
 The binary can be executed by running `cargo run --release` in this directory. Running the debug binaries using
 `cargo run` enables additional logging messages (all loggers set to level DEBUG, whereas the logger qr_slip::api,
-which logs api requests, is set to WARN and other loggers are set to INFO when using release binaries).
+which logs api requests, is set to WARN and other loggers are set to INFO when using release binaries) and enables the dbg
+endpoints.
 
 When running in production, the feature `auto_migration` should be enabled so that migrations run at startup automatically
 using `cargo run --release --features auto_migration`.
