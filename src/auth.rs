@@ -1,5 +1,6 @@
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::{offset::Utc, Duration};
+use diesel::{dsl::count, expression::dsl::any, expression_methods::BoolExpressionMethods};
 use exec_rs::sync::MutexSync;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use lazy_static::lazy_static;
@@ -22,7 +23,6 @@ use crate::{
     schema::{principal, qr_user, refresh_token},
     DbConnection,
 };
-use diesel::{dsl::count, expression::dsl::any, expression_methods::BoolExpressionMethods};
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -144,7 +144,7 @@ fn create_refresh_token_cookie(
     let expiry = current_utc + Duration::hours(24);
 
     let new_refresh_token = NewRefreshToken {
-        uuid: uuid.clone(),
+        uuid,
         expiry,
         invalidated: false,
         fk_principal: principal.pk,
@@ -375,7 +375,7 @@ pub async fn delete_users_handler(
     user_keys_str: String,
 ) -> Result<impl Reply, Rejection> {
     let mut keys = Vec::new();
-    for key_str in user_keys_str.split(",") {
+    for key_str in user_keys_str.split(',') {
         if let Ok(key) = key_str.trim().parse::<i32>() {
             keys.push(key);
         } else {

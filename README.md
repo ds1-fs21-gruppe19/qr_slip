@@ -16,6 +16,10 @@ After that you should be able to send requests to `localhost:80`.
   e.g. `DATABASE_URL=postgres://username:password@localhost/qr_slip`.
 * To generate JWT tokens the `JWT_SECRET` environment variable must be set.
 
+The environment variable `USE_PY_QR_GENERATOR` may be set to a boolean to toggle usage of the rq_generator.py script to
+generate QR codes as an alternative to native QR code generation. This defaults to false but may be enabled in development
+as using the python script simplifies experimenting with changes.
+
 These properties can be set locally in the .env file in the project directory for development.
 
 To run schema migrations or create the initial database schema, run `diesel migration run`. When using the `auto_migration`
@@ -234,3 +238,73 @@ For example `/delete-users/6,8,9` might return this:
 
 As any request that requires a login it returns a 401 when missing the authorization header or a 400 if the authorization
 header is not formatted correctly.
+
+### `/generate-slip`
+
+POST request.
+
+Generates a PDF file where each page is a qr-slip created for a deserialized QrData element provided by the sequence of
+JSON objects in the request body.
+
+This request does not require any authentication as all user data is provided in the request. It is expected that the client
+provides user data selected by the user from a `/users` request or user data that the user entered manually.
+
+Each object provided in the sequence of JSON objects in the body must be able to be deserialized to the following struct:
+
+```rust
+pub struct QrData {
+    creditor_iban: String,
+    creditor_name: String,
+    creditor_address: String,
+    creditor_zip_code: String,
+    creditor_city: String,
+    creditor_country: String,
+    debtor_name: String,
+    debtor_address: String,
+    debtor_zip_code: String,
+    debtor_city: String,
+    debtor_country: String,
+    amount: String,
+    currency: String,
+    reference_type: String,
+    reference_number: Option<String>,
+    additional_information: Option<String>,
+}
+```
+
+The `reference_type` must be one of the following items:
+ * QRR, which must be used if the `creditor_iban` is a QR-IBAN and requires that `reference_number` is set to a 27 digit numerical value
+ * SCOR, which must be used if the `creditor_iban` is an IBAN and `reference_number` is set (in that case the
+   `reference_number` must be a 5 - 25 digit alphanumerical value)
+ * NON, which must be used if the `reference_number` is not set or empty
+
+These conditions and length restrictions for each field are verified and the endpoint returns a 400 BAD REQUEST on violation.
+
+See the official [specification](https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-de.pdf).
+
+The endpoint returns the PDF file in the body and the header Content-Type set to application/pdf.
+
+### `/dbg-qr-pdf` (debug binaries only)
+
+POST request.
+
+Generates a PDF file containing a qr slip on each page. This request functions the same as `/generate-slip` and expects
+the same input but saves the created PDF file to a new file in the `tmp/` directory. This request is meant to be used in
+development and is only available when running the debug binaries.
+
+### `dbg-qr-html` (debug binaries only)
+
+POST request.
+
+Generates an HTML file containing all qr slips which would later be used to generate the PDF file. This endpoint functions
+the same as `/dbg-qr-pdf` only that it does not perform the step that would create the PDF file and saves an HTML file
+instead.
+
+### `dbg-qr-svg` (debug binaries only)
+
+POST request.
+
+Generates a qr code that encodes the provided data in the format specified by the [six documentation](https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-de.pdf).
+
+This endpoint functions the same as `/dbg-qr-html` only that it does not perform the step that would create the HTML file
+and saves an SVG file containing the QR code instead. Also, this endpoint expects a single JSON object, not a sequence.

@@ -30,6 +30,18 @@ pub enum Error {
     SerialisationError,
     #[error("The provided refresh token is invalid")]
     InvalidRefreshTokenError,
+    #[error("An error occured when evaluating a python script: '{0}'")]
+    PythonError(String),
+    #[error("An error occured while generating a QR-Code: '{0}'")]
+    QrCodeError(String),
+    #[error("An error occured while rendering a tera template: '{0}'")]
+    TeraError(String),
+    #[error("An error occured while building a pdf file: '{0}'")]
+    PdfError(String),
+    #[error("An IO error occured: '{0}'")]
+    IoError(String),
+    #[error("The request input could not be validated: '{0}'")]
+    InvalidRequestInputError(String),
 }
 
 impl Reject for Error {}
@@ -50,12 +62,18 @@ pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
             Error::PrincipalExistsError(_)
             | Error::UtfEncodingError
             | Error::InvalidAuthHeaderError
-            | Error::BadRequestError => (StatusCode::BAD_REQUEST, e.to_string()),
+            | Error::BadRequestError
+            | Error::InvalidRequestInputError(_) => (StatusCode::BAD_REQUEST, e.to_string()),
             Error::DatabaseConnectionError
             | Error::QueryError
             | Error::JwtCreationError
             | Error::EncryptionError
-            | Error::SerialisationError => {
+            | Error::SerialisationError
+            | Error::PythonError(_)
+            | Error::QrCodeError(_)
+            | Error::TeraError(_)
+            | Error::PdfError(_)
+            | Error::IoError(_) => {
                 log::error!("Encountered internal server error: {}", e);
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }
