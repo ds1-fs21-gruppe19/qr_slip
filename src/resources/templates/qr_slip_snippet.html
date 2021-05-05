@@ -1,0 +1,80 @@
+{% macro slip(qr_data, qr_code) %}
+<div id="slip">
+    <div id="leftPart">
+        <div id="receiptTitle">
+            <h1>Empfangsschein</h1>
+        </div>
+        <div id="receiptAccount" class="receipt-value">
+            <h4>Konto / Zahlbar an</h4>
+            <p>{{qr_data.creditor_iban}}</p>
+            <p>{{qr_data.creditor_name}}</p>
+            <p>{{qr_data.creditor_address}}</p>
+            <p>{{qr_data.creditor_zip_code}} {{qr_data.creditor_city}}</p>
+            <p>{{qr_data.creditor_country}}</p>
+            <br>
+            <h4>Referenz</h4>
+            <p>{{qr_data.reference_number}}</p>
+            <br>
+            <h4>Zahlbar durch</h4>
+            <p>{{qr_data.debtor_name}}</p>
+            <p>{{qr_data.debtor_address}}</p>
+            <p>{{qr_data.debtor_zip_code}} {{qr_data.debtor_city}}</p>
+            <p>{{qr_data.debtor_country}}</p>
+        </div>
+        <div id="receiptCurrencyTitle">
+            <h4>W&auml;hrung</h4>
+            <p>{{qr_data.currency}}</p>
+        </div>
+        <div id="receiptCurrencyAmount">
+            <h4>Betrag</h4>
+            <p>{{qr_data.amount}}</p>
+        </div>
+        <div id="receiptAcceptancePoint">
+            <h4>Annahmestelle</h4>
+        </div>
+
+        <!--</div><div id="middlePart">-->
+        <div id="paymentTitle">
+            <h1>Zahlteil</h1>
+        </div>
+        <div id="paymentQrCode">
+            {{qr_code | safe}}
+        </div>
+        <div id="paymentCurrencyTitle">
+            <h4>W&auml;hrung</h4>
+            <p>{{qr_data.currency}}</p>
+        </div>
+        <div id="paymentCurrencyAmount">
+            <h4>Betrag</h4>
+            <p>{{qr_data.amount}}</p>
+        </div>
+    </div>
+    <div id="rightPart">
+        <div id="paymentAccount">
+            <h3>Konto / Zahlbar an</h3>
+            <p class="payment-part-data">{{qr_data.creditor_iban}}</p>
+            <p class="payment-part-data">{{qr_data.creditor_name}}</p>
+            <p class="payment-part-data">{{qr_data.creditor_address}}</p>
+            <p class="payment-part-data">{{qr_data.creditor_zip_code}} {{qr_data.creditor_city}}</p>
+            <p class="payment-part-data">{{qr_data.creditor_country}}</p>
+            <br>
+            {% if qr_data.reference_number %}
+            <h3>Referenz</h3>
+            <p class="payment-part-data">{{qr_data.reference_number}}</p>
+            {% endif %}
+            <br>
+            {% if qr_data.additional_information %}
+            <h3>Zusätzliche Informationen</h3>
+            <p class="payment-part-data">{{qr_data.additional_information}}</p>
+            {% endif %}
+            <br>
+
+            <h3>Zahlbar durch</h3>
+            <p class="payment-part-data">{{qr_data.debtor_name}}</p>
+            <p class="payment-part-data">{{qr_data.debtor_address}}</p>
+            <p class="payment-part-data">{{qr_data.debtor_zip_code}} {{qr_data.debtor_city}}</p>
+            <p class="payment-part-data">{{qr_data.debtor_country}}</p>
+        </div>
+    </div>
+</div>
+{% endmacro slip %}

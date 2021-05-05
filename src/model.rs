@@ -11,8 +11,7 @@ use crate::schema::{principal, qr_user, refresh_token};
 #[primary_key(pk)]
 pub struct User {
     pub pk: i32,
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
+    pub name: String,
     pub address: String,
     pub zip_code: String,
     pub city: String,
@@ -25,8 +24,7 @@ pub struct User {
 #[derive(Insertable)]
 #[table_name = "qr_user"]
 pub struct NewUser {
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
+    pub name: String,
     pub address: String,
     pub zip_code: String,
     pub city: String,

@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate diesel;
-
 #[cfg(feature = "auto_migration")]
 #[macro_use]
 extern crate diesel_migrations;
@@ -13,7 +12,8 @@ use diesel::{
 };
 use dotenv::dotenv;
 use lazy_static::lazy_static;
-use warp::Filter;
+use pyo3::prelude::*;
+use warp::{http::header, Filter};
 
 use error::Error;
 
@@ -21,6 +21,7 @@ pub mod auth;
 pub mod error;
 pub mod model;
 pub mod schema;
+pub mod templating;
 
 pub type DbConnection = PooledConnection<ConnectionManager<PgConnection>>;
 
@@ -41,7 +42,15 @@ lazy_static! {
             .expect("Missing environment variable JWT_SECRET must be set to generate JWT tokens.");
         u64::from_str(&secret_str).expect("JWT_SECRET var is not a valid u64 value")
     };
+    pub static ref USE_PY_QR_GENERATOR: bool = {
+        std::env::var("USE_PY_QR_GENERATOR").map_or(false, |val| {
+            bool::from_str(&val).expect("USE_PY_QR_GENERATOR is not a valid bool value")
+        })
+    };
 }
+
+pub const QR_GENERATOR_MODULE: &str = "qr_generator";
+const QR_GENERATOR_SCRIPT: &str = std::include_str!("resources/py/qr_generator.py");
 
 #[cfg(feature = "auto_migration")]
 diesel_migrations::embed_migrations!();
@@ -50,7 +59,27 @@ diesel_migrations::embed_migrations!();
 async fn main() {
     dotenv().ok();
 
+    // initialise certain lazy statics on startup
+    lazy_static::initialize(&CONNECTION_POOL);
+    lazy_static::initialize(&JWT_SECRET);
+    lazy_static::initialize(&USE_PY_QR_GENERATOR);
+    lazy_static::initialize(&templating::QR_SLIP_TEMPLATES);
+    lazy_static::initialize(&templating::PDF_APPLICATION_WORKER);
+
     setup_logger();
+
+    if *USE_PY_QR_GENERATOR {
+        // compile qr generator module
+        Python::with_gil(|py| {
+            PyModule::from_code(
+                py,
+                QR_GENERATOR_SCRIPT,
+                "resources/py/qr_generator.py",
+                QR_GENERATOR_MODULE,
+            )
+            .expect("Could not compile qr generator python module");
+        });
+    }
 
     #[cfg(feature = "auto_migration")]
     {
@@ -93,16 +122,51 @@ async fn main() {
         .and(warp::path::param())
         .and_then(auth::delete_users_handler);
 
+    let generate_qr_slip_route = warp::path("generate-slip")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(templating::generate_slip_handler)
+        .map(|reply| warp::reply::with_header(reply, header::CONTENT_TYPE, "application/pdf"));
+
+    #[cfg(debug_assertions)]
+    let dbg_qr_pdf_route = warp::path("dbg-qr-pdf")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(templating::dbg_qr_pdf_handler);
+
+    #[cfg(debug_assertions)]
+    let dbg_qr_html_route = warp::path("dbg-qr-html")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(templating::dbg_qr_html_handler);
+
+    #[cfg(debug_assertions)]
+    let dbg_qr_svg_route = warp::path("dbg-qr-svg")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(templating::dbg_qr_svg_handler);
+
     let routes = login_route
         .or(refresh_login_router)
         .or(register_route)
         .or(create_user_route)
         .or(get_users_route)
         .or(delete_users_route)
+        .or(generate_qr_slip_route);
+
+    #[cfg(debug_assertions)]
+    let all_routes = routes
+        .or(dbg_qr_pdf_route)
+        .or(dbg_qr_html_route)
+        .or(dbg_qr_svg_route);
+
+    #[cfg(not(debug_assertions))]
+    let all_routes = routes;
+
+    let filter = all_routes
         .recover(error::handle_rejection)
         .with(warp::log("qr_slip::api"));
-
-    warp::serve(routes).run(([0, 0, 0, 0], 8000)).await;
+    warp::serve(filter).run(([0, 0, 0, 0], 8000)).await;
 }
 
 pub fn acquire_db_connection() -> Result<DbConnection, warp::Rejection> {
@@ -115,7 +179,6 @@ fn setup_logger() {
     // create logs dir as fern does not appear to handle that itself
     if !std::path::Path::new("logs/").exists() {
         std::fs::create_dir("logs").expect("Failed to create logs/ directory");
-        println!("Created missing /logs dir");
     }
 
     let (logging_level, api_logging_level) = if cfg!(debug_assertions) {

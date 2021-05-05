@@ -5,6 +5,7 @@
 * run `docker-compose up --build` from root directory.
 
 Docker-compose will create:
+
 1. postgres container and run the sql/db.sql file to add all tables and relations.
 2. rust container (base on debian `rust:latest`).
 
@@ -16,11 +17,30 @@ After that you should be able to send requests to `localhost:80`.
   e.g. `DATABASE_URL=postgres://username:password@localhost/qr_slip`.
 * To generate JWT tokens the `JWT_SECRET` environment variable must be set.
 
+The environment variable `USE_PY_QR_GENERATOR` may be set to a boolean to toggle usage of the rq_generator.py script to
+generate QR codes as an alternative to native QR code generation. This defaults to false but may be enabled in development
+as using the python script simplifies experimenting with changes.
+
 These properties can be set locally in the .env file in the project directory for development.
 
 To run schema migrations or create the initial database schema, run `diesel migration run`. When using the `auto_migration`
 feature, migrations are executed at startup automatically, which should be the case when running the service in production,
 see the run chapter.
+
+Compiling requires [wkhtmltopdf](https://wkhtmltopdf.org/downloads.html) to be installed. On Arch / Manjaro Linux installing
+the wkhtmltopdf package from the community repo should suffice, on Debian based distros the included wkhtmltopdf package
+does not seem to contain the library, so you might want to download and install the .deb package* provided by wkhtmltopdf.
+Additionally, you might need to install python3.8-dev and libpq-dev. On macOS, downloading and installing the .pkg from
+the website should suffice. On Windows, download the installer and install wkhtmltopdf to `C:\Program Files\wkhtmltopdf`,
+the build script build.rs adds the linker argument for the lib directory on that platform, and make sure that `C:\Program Files\wkhtmltopdf\bin`
+has been added to the path so that the dll can be found at runtime.
+
+*for example, on ubuntu 20.04 run
+
+```bash
+wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.focal_amd64.deb
+sudo apt install ./wkhtmltox_0.12.6-1.focal_amd64.deb
+```
 
 To compile the project install the latest stable version of rust using [rustup](https://rustup.rs/), then run
 `cargo build` to compile debug binaries or run `cargo build --release` to compile release binaries.
@@ -29,7 +49,8 @@ To compile the project install the latest stable version of rust using [rustup](
 
 The binary can be executed by running `cargo run --release` in this directory. Running the debug binaries using
 `cargo run` enables additional logging messages (all loggers set to level DEBUG, whereas the logger qr_slip::api,
-which logs api requests, is set to WARN and other loggers are set to INFO when using release binaries).
+which logs api requests, is set to WARN and other loggers are set to INFO when using release binaries) and enables the dbg
+endpoints.
 
 When running in production, the feature `auto_migration` should be enabled so that migrations run at startup automatically
 using `cargo run --release --features auto_migration`.
@@ -100,19 +121,18 @@ can be deserialized to the following struct:
 
 ```rust
 pub struct UserRegistration {
-   pub first_name: Option<String>,
-   pub last_name: Option<String>,
-   pub address: String,
-   pub zip_code: String,
-   pub city: String,
-   pub iban: String,
-   pub country: String,
-   pub user_name: String,
-   pub password: String,
+    pub name: String,
+    pub address: String,
+    pub zip_code: String,
+    pub city: String,
+    pub iban: String,
+    pub country: String,
+    pub user_name: String,
+    pub password: String,
 }
 ```
 
-Note that first_name and last_name are optional fields.
+Name is either the full name of a natural person or the name of a company.
 
 If the user_name for the principal is already taken, the server responds with the following JSON and a 400 status code:
 
@@ -129,13 +149,12 @@ If the request succeeded and the user and principal have been created the server
 
 POST request.
 
-Create a new User for the currently signed in principal. Requires an authorization header containing a JWT in the form
+Create a new User for the currently signed-in principal. Requires an authorization header containing a JWT in the form
 of "Bearer TOKEN" and expects a JSON body that can be deserialized to the following struct:
 
 ```rust
 pub struct CreateUser {
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
+    pub name: String,
     pub address: String,
     pub zip_code: String,
     pub city: String,
@@ -144,7 +163,7 @@ pub struct CreateUser {
 }
 ```
 
-Note that first_name and last_name are optional fields.
+Name is either the full name of a natural person or the name of a company.
 
 Simply returns a 200 if the operation was successful.
 
@@ -167,8 +186,7 @@ Example response:
 [
     {
         "pk": 2,
-        "first_name": "Test",
-        "last_name": "User",
+        "name": "Test User",
         "address": "Downing Street 10",
         "zip_code": "SW1",
         "city": "London",
@@ -176,9 +194,8 @@ Example response:
         "country": "UK"
     },
     {
-        "pk": 5,
-        "first_name": null,
-        "last_name": null,
+        "pk": 3,
+        "name": "Reynholm Industries",
         "address": "Thomas More St",
         "zip_code": "E1W 1YW",
         "city": "London",
@@ -192,45 +209,105 @@ Example response:
 
 DELETE request.
 
-Deletes all users where the principal matches the currently logged in principal and the primary key is included in the request.
-Returns a json containing all users that have been deleted.
+Deletes all users where the principal matches the currently logged-in principal, and the primary key is included in the request.
+Returns a json containing all users that have been deleted. Invalid primary keys that either do not exist or describe
+entities that do not belong to the current principal are ignored.
 
-For example `/delete-users/6,8,9` might return this:
+For example `/delete-users/8,9,10,11` might return this if pk 9 does not exist and pk 10 does not belong to the current principal:
 
 ```json
 [
-    {
-        "pk": 6,
-        "first_name": null,
-        "last_name": null,
-        "address": "todel",
-        "zip_code": "E1W 1YW",
-        "city": "London",
-        "iban": "iban",
-        "country": "CH"
-    },
-    {
-        "pk": 8,
-        "first_name": null,
-        "last_name": null,
-        "address": "todel",
-        "zip_code": "E1W 1YW",
-        "city": "London",
-        "iban": "iban",
-        "country": "CH"
-    },
-    {
-        "pk": 9,
-        "first_name": null,
-        "last_name": null,
-        "address": "todel",
-        "zip_code": "E1W 1YW",
-        "city": "London",
-        "iban": "iban",
-        "country": "CH"
-    }
+  {
+    "pk": 8,
+    "name": "todel",
+    "address": "todel",
+    "zip_code": "E1W 1YW",
+    "city": "London",
+    "iban": "iban",
+    "country": "UK"
+  },
+  {
+    "pk": 11,
+    "name": "todel2",
+    "address": "todel2",
+    "zip_code": "E1W 1YW",
+    "city": "London",
+    "iban": "iban",
+    "country": "UK"
+  }
 ]
 ```
 
 As any request that requires a login it returns a 401 when missing the authorization header or a 400 if the authorization
 header is not formatted correctly.
+
+### `/generate-slip`
+
+POST request.
+
+Generates a PDF file where each page is a qr-slip created for a deserialized QrData element provided by the sequence of
+JSON objects in the request body.
+
+This request does not require any authentication as all user data is provided in the request. It is expected that the client
+provides user data selected by the user from a `/users` request or user data that the user entered manually.
+
+Each object provided in the sequence of JSON objects in the body must be able to be deserialized to the following struct:
+
+```rust
+pub struct QrData {
+    creditor_iban: String,
+    creditor_name: String,
+    creditor_address: String,
+    creditor_zip_code: String,
+    creditor_city: String,
+    creditor_country: String,
+    debtor_name: String,
+    debtor_address: String,
+    debtor_zip_code: String,
+    debtor_city: String,
+    debtor_country: String,
+    amount: String,
+    currency: String,
+    reference_type: String,
+    reference_number: Option<String>,
+    additional_information: Option<String>,
+}
+```
+
+The `reference_type` must be one of the following items:
+
+* QRR, which must be used if the `creditor_iban` is a QR-IBAN and requires that `reference_number` is set to a 27 digit numerical value
+* SCOR, which must be used if the `creditor_iban` is an IBAN and `reference_number` is set (in that case the
+   `reference_number` must be a 5 - 25 digit alphanumerical value)
+* NON, which must be used if the `reference_number` is not set or empty
+
+These conditions and length restrictions for each field are verified and the endpoint returns a 400 BAD REQUEST on violation.
+
+See the official [specification](https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-de.pdf).
+
+The endpoint returns the PDF file in the body and the header Content-Type set to application/pdf.
+
+### `/dbg-qr-pdf` (debug binaries only)
+
+POST request.
+
+Generates a PDF file containing a qr slip on each page. This request functions the same as `/generate-slip` and expects
+the same input but saves the created PDF file to a new file in the `tmp/` directory. This request is meant to be used in
+development and is only available when running the debug binaries.
+
+### `dbg-qr-html` (debug binaries only)
+
+POST request.
+
+Generates an HTML file containing all qr slips which would later be used to generate the PDF file. This endpoint functions
+the same as `/dbg-qr-pdf` only that it does not perform the step that would create the PDF file and saves an HTML file
+instead.
+
+### `dbg-qr-svg` (debug binaries only)
+
+POST request.
+
+Generates a qr code that encodes the provided data in the format specified by the [six documentation](https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-de.pdf).
+
+This endpoint functions the same as `/dbg-qr-html` only that it does not perform the step that would create the HTML file
+and saves an SVG file containing the QR code instead. Also, this endpoint expects a single JSON object, not a sequence.
