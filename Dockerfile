@@ -14,4 +14,4 @@ RUN cargo build --release
 #CMD [ "cargo", "run", "--release", "--features auto_migration" ]
 
 # Debug with auto migration
-CMD [ "cargo", "run", "--features auto_migration" ]
+CMD [ "cargo", "run", "--release" ]
