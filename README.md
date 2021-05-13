@@ -21,6 +21,12 @@ The environment variable `USE_PY_QR_GENERATOR` may be set to a boolean to toggle
 generate QR codes as an alternative to native QR code generation. This defaults to false but may be enabled in development
 as using the python script simplifies experimenting with changes.
 
+The environment variable `PDF_WORKER_POOL_SIZE` may be set to specify the number of processes in a pool used to convert
+html to pdf via wkhtmltopdf. If 0 or not set, a single thread spawned by the main process is used to execute wkhtmltopdf
+instead. This restriction exists because wkhtmltopdf can only be initialised once per process and only used by one thread.
+Note that the process pool is only supported on macOS and Linux, on Windows and other platforms qr_slip always uses the
+single worker thread.
+
 These properties can be set locally in the .env file in the project directory for development.
 
 To run schema migrations or create the initial database schema, run `diesel migration run`. When using the `auto_migration`

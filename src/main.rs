@@ -58,15 +58,16 @@ diesel_migrations::embed_migrations!();
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    setup_logger();
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    procspawn::init();
 
     // initialise certain lazy statics on startup
     lazy_static::initialize(&CONNECTION_POOL);
     lazy_static::initialize(&JWT_SECRET);
     lazy_static::initialize(&USE_PY_QR_GENERATOR);
     lazy_static::initialize(&templating::QR_SLIP_TEMPLATES);
-    lazy_static::initialize(&templating::PDF_APPLICATION_WORKER);
-
-    setup_logger();
+    lazy_static::initialize(&templating::PDF_APPLICATION_WORKER_MANAGER);
 
     if *USE_PY_QR_GENERATOR {
         // compile qr generator module
@@ -83,11 +84,12 @@ async fn main() {
 
     #[cfg(feature = "auto_migration")]
     {
+        log::info!("Running diesel migrations");
         let connection = acquire_db_connection().expect("Failed to acquire database connection");
         if let Err(e) = embedded_migrations::run_with_output(&connection, &mut std::io::stdout()) {
-            eprintln!("Failed running db migrations: {}", e);
-            return;
+            panic!("Failed running db migrations: {}", e);
         }
+        log::info!("Done running diesel migrations");
     }
 
     let login_route = warp::path("login")

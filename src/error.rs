@@ -30,15 +30,15 @@ pub enum Error {
     SerialisationError,
     #[error("The provided refresh token is invalid")]
     InvalidRefreshTokenError,
-    #[error("An error occured when evaluating a python script: '{0}'")]
+    #[error("An error occurred when evaluating a python script: '{0}'")]
     PythonError(String),
-    #[error("An error occured while generating a QR-Code: '{0}'")]
+    #[error("An error occurred while generating a QR-Code: '{0}'")]
     QrCodeError(String),
-    #[error("An error occured while rendering a tera template: '{0}'")]
+    #[error("An error occurred while rendering a tera template: '{0}'")]
     TeraError(String),
-    #[error("An error occured while building a pdf file: '{0}'")]
+    #[error("An error occurred while building a pdf file: '{0}'")]
     PdfError(String),
-    #[error("An IO error occured: '{0}'")]
+    #[error("An IO error occurred: '{0}'")]
     IoError(String),
     #[error("The request input could not be validated: '{0}'")]
     InvalidRequestInputError(String),
