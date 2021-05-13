@@ -5,12 +5,13 @@
     <title>Empfangsschein</title>
 </head>
 <body>
+
 {% for qr_data in qr_data_vec %}
-    {% set qr_code = qr_code_vec[loop.index0] %}
-    {{qr_slip_snippet::slip(qr_data=qr_data, qr_code=qr_code)}}
-    {% if not loop.last %}
-    <div style="page-break-before: always;"></div>
-    {% endif %}
+{% set qr_code = qr_code_vec[loop.index0] %}
+{{qr_slip_snippet::slip(qr_data=qr_data, qr_code=qr_code)}}
+{% if not loop.last %}
+<div style="page-break-before: always;"></div>
+{% endif %}
 {% endfor %}
 </body>
 <style>
@@ -121,9 +122,24 @@
         height: 95mm;
         grid-gap: 5mm;
         padding: 5mm;
-        border: 1px solid;
     }
-
+    #cutHorizontal{
+        width: 210mm;
+        grid-column: 1/-1;
+        grid-row: 1/1;
+        margin-top: -6.5mm;
+        margin-left: -5mm;
+        background-origin: content-box;
+    }
+    #cutVertical{
+        grid-column: 5/6;
+        grid-row: 1/-1;
+        margin-top: -5mm;
+        margin-left: -1.5mm;
+    }
+    #cutVertical svg{
+        height: 105mm;
+    }
     #leftPart {
         grid-area: inherit;
         grid-column: 1/2;
@@ -191,13 +207,17 @@
         grid-column: 1/2;
     }
 
-    #paymentQrCode {
-        margin: 5mm;
-        width: 46mm;
-    }
-
     .payment-part-data {
         font-size: 10pt;
+    }
+
+    #paymentQrCode svg {
+        max-width: 56mm;
+        max-height: 56mm;
+        margin: -2.5mm;
+        padding-top: 5mm;
+        z-index: -1;
+        position: absolute;
     }
 </style>
 </html>
