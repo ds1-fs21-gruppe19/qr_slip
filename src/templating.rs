@@ -368,6 +368,9 @@ impl PdfApplicationWorkerManager {
 
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     pub fn new() -> Self {
+        if *PDF_WORKER_POOL_SIZE > 0 {
+            log::warn!("PDF_WORKER_POOL_SIZE set but the current platform does not support procspawn, falling back to single worker thread.");
+        }
         Self::new_single_threaded_worker()
     }
 
