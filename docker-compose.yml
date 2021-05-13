@@ -21,7 +21,6 @@ services:
     container_name: service_1
     build: .
     environment:
-      RUST_LOG: debug
       JWT_SECRET: 165434867894
       DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
     ports:

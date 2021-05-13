@@ -1,9 +1,8 @@
 FROM rust:1.52.0
 
-WORKDIR /
+WORKDIR /opt/qr_slip
 COPY /. ./
 RUN rm ./build.rs
-
 
 #Install wkhtmltopdf with prerequiments
 RUN apt update
