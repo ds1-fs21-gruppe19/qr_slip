@@ -58,15 +58,16 @@ diesel_migrations::embed_migrations!();
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    setup_logger();
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    procspawn::init();
 
     // initialise certain lazy statics on startup
     lazy_static::initialize(&CONNECTION_POOL);
     lazy_static::initialize(&JWT_SECRET);
     lazy_static::initialize(&USE_PY_QR_GENERATOR);
     lazy_static::initialize(&templating::QR_SLIP_TEMPLATES);
-    lazy_static::initialize(&templating::PDF_APPLICATION_WORKER);
-
-    setup_logger();
+    lazy_static::initialize(&templating::PDF_APPLICATION_WORKER_MANAGER);
 
     if *USE_PY_QR_GENERATOR {
         // compile qr generator module

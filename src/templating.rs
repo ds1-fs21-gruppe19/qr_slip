@@ -1,6 +1,11 @@
 #[cfg(not(debug_assertions))]
 use std::io::Read;
-use std::{error::Error, io};
+use std::{
+    cell::RefCell,
+    error::Error,
+    fmt::{self, Display},
+    io,
+};
 #[cfg(debug_assertions)]
 use std::{
     fs,
@@ -20,6 +25,7 @@ use tera::Tera;
 use uuid::Uuid;
 use validator::{Validate, ValidationError};
 use warp::{Rejection, Reply};
+use wkhtmltopdf::PdfApplication;
 
 #[cfg(debug_assertions)]
 use crate::error::Error::IoError;
@@ -86,7 +92,14 @@ lazy_static! {
             Err(e) => panic!("Could not load tera templates: '{}'", e),
         }
     };
-    pub static ref PDF_APPLICATION_WORKER: PdfApplicationWorker = PdfApplicationWorker::new();
+    pub static ref PDF_APPLICATION_WORKER_MANAGER: PdfApplicationWorkerManager =
+        PdfApplicationWorkerManager::new();
+    pub static ref PDF_WORKER_POOL_SIZE: usize = {
+        std::env::var("PDF_WORKER_POOL_SIZE").map_or(0, |val| {
+            val.parse::<usize>()
+                .expect("PDF_WORKER_POOL_SIZE is not a valid usize")
+        })
+    };
 }
 
 #[derive(Clone, Serialize, Deserialize, IntoPyObject, Debug, Validate)]
@@ -153,7 +166,7 @@ impl QrData {
 pub async fn generate_slip_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
     let qr_svg_vec = generate_qr_svg_for_all(&mut qr_data_vec)?;
     let html = generate_html_slip(qr_data_vec, qr_svg_vec)?;
-    let pdf = PDF_APPLICATION_WORKER
+    let pdf = PDF_APPLICATION_WORKER_MANAGER
         .generate_pdf_from_html(html)
         .await
         .map_err(|e| e.get_rejection())?;
@@ -165,7 +178,7 @@ pub async fn generate_slip_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl 
 pub async fn dbg_qr_pdf_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
     let qr_svg_vec = generate_qr_svg_for_all(&mut qr_data_vec)?;
     let html = generate_html_slip(qr_data_vec, qr_svg_vec)?;
-    let pdf = PDF_APPLICATION_WORKER
+    let pdf = PDF_APPLICATION_WORKER_MANAGER
         .generate_pdf_from_html(html)
         .await
         .map_err(|e| e.get_rejection())?;
@@ -317,62 +330,87 @@ fn py_err_into_rejection(e: PyErr, py: Python) -> Rejection {
 
 pub type PdfResult = Result<Vec<u8>, PdfApplicationError>;
 
-pub struct PdfApplicationWorker {
+pub struct PdfApplicationWorkerManager {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    pool: Option<procspawn::Pool>,
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    html_channel: Option<Sender<(String, oneshot::Sender<PdfResult>)>>,
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     html_channel: Sender<(String, oneshot::Sender<PdfResult>)>,
 }
 
-impl PdfApplicationWorker {
+impl PdfApplicationWorkerManager {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub fn new() -> Self {
-        let (html_sender, html_receiver) =
-            crossbeam_channel::unbounded::<(String, oneshot::Sender<PdfResult>)>();
+        if *PDF_WORKER_POOL_SIZE > 0 {
+            let pool = match procspawn::Pool::new(*PDF_WORKER_POOL_SIZE) {
+                Ok(pool) => pool,
+                Err(e) => panic!(
+                    "Failed to spawn PdfApplication worker process: '{}'",
+                    e.to_string()
+                ),
+            };
 
-        std::thread::Builder::new()
-            .name(String::from("pdf_worker"))
-            .spawn(move || {
-                use wkhtmltopdf::Orientation;
+            log::info!(
+                "Set up PDF worker process pool with {} processes",
+                *PDF_WORKER_POOL_SIZE
+            );
 
-                let mut pdf_application = match wkhtmltopdf::PdfApplication::new() {
-                    Ok(pdf_application) => pdf_application,
-                    Err(e) => panic!("Failed to initialise wkhtmltopdf: {}", e.to_string()),
-                };
-
-                loop {
-                    let (html, result_sender) = html_receiver
-                        .recv()
-                        .expect("Html channel disconnected unexpectedly");
-
-                    let pdf_result = pdf_application
-                        .builder()
-                        .title("Qr Slip")
-                        .orientation(Orientation::Landscape)
-                        .build_from_html(&html)
-                        .map(|output| {
-                            output
-                                .bytes()
-                                .collect::<Result<Vec<u8>, io::Error>>()
-                                .map_err(PdfApplicationError::IoError)
-                        })
-                        .map_err(PdfApplicationError::WkhtmlError);
-
-                    // flatten `Result<Result<T, E>, E>` to `Result<T, E>` manually as flatten() is currently nightly only
-                    let flattened_pdf_result = match pdf_result {
-                        Ok(Err(e)) => Err(e),
-                        Ok(Ok(bytes)) => Ok(bytes),
-                        Err(e) => Err(e),
-                    };
-
-                    result_sender
-                        .send(flattened_pdf_result)
-                        .expect("Pdf result channel has closed unexpectedly");
-                }
-            })
-            .expect("Failed to spawn pdf_worker thread");
-
-        Self {
-            html_channel: html_sender,
+            Self {
+                pool: Some(pool),
+                html_channel: None,
+            }
+        } else {
+            Self::new_single_threaded_worker()
         }
     }
 
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    pub fn new() -> Self {
+        Self::new_single_threaded_worker()
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    pub async fn generate_pdf_from_html(&self, html: String) -> PdfResult {
+        if let Some(ref pool) = self.pool {
+            let join_handle: procspawn::JoinHandle<Result<Vec<u8>, String>> =
+                pool.spawn(html, |html| {
+                    std::thread_local! {
+                        static PDF_APPLICATION: RefCell<PdfApplication> = match PdfApplication::new() {
+                            Ok(p) => {
+                                log::debug!("Initialised PdfApplication for worker process");
+                                RefCell::new(p)
+                            },
+                            Err(e) => {
+                                panic!("Failed to initialise PdfApplication: '{}'", e.to_string())
+                            }
+                        };
+                    };
+
+                    log::debug!("PDF worker process received html");
+                    PDF_APPLICATION.with(|pdf_application| {
+                        convert_html_to_pdf(&mut *pdf_application.borrow_mut(), &html).map_err(|e| e.to_string())
+                    })
+                });
+
+            match join_handle.join() {
+                Ok(result) => result.map_err(PdfApplicationError::RawError),
+                Err(_) => Err(PdfApplicationError::SpawnError),
+            }
+        } else if let Some(ref html_channel) = self.html_channel {
+            let (result_sender, result_receiver) = oneshot::channel::<PdfResult>();
+            html_channel
+                .send((html, result_sender))
+                .expect("Html channel disconnected unexpectedly");
+            result_receiver
+                .await
+                .expect("Pdf result channel has closed unexpectedly")
+        } else {
+            panic!("Either pool or html_channel must be set")
+        }
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     pub async fn generate_pdf_from_html(&self, html: String) -> PdfResult {
         let (result_sender, result_receiver) = oneshot::channel::<PdfResult>();
         self.html_channel
@@ -382,11 +420,83 @@ impl PdfApplicationWorker {
             .await
             .expect("Pdf result channel has closed unexpectedly")
     }
+
+    fn new_single_threaded_worker() -> Self {
+        let (html_sender, html_receiver) =
+            crossbeam_channel::unbounded::<(String, oneshot::Sender<PdfResult>)>();
+
+        std::thread::Builder::new()
+            .name(String::from("pdf_worker"))
+            .spawn(move || {
+                let mut pdf_application = match PdfApplication::new() {
+                    Ok(pdf_application) => {
+                        log::debug!("Initialised PdfApplication for worker thread");
+                        pdf_application
+                    },
+                    Err(e) => panic!("Failed to initialise wkhtmltopdf: {}", e.to_string()),
+                };
+
+                loop {
+                    let (html, result_sender) = html_receiver
+                        .recv()
+                        .expect("Html channel disconnected unexpectedly");
+
+                    log::debug!("PDF worker thread received html");
+                    // flatten `Result<Result<T, E>, E>` to `Result<T, E>` manually as flatten() is currently nightly only
+                    let flattened_pdf_result = convert_html_to_pdf(&mut pdf_application, &html);
+
+                    result_sender
+                        .send(flattened_pdf_result)
+                        .expect("Pdf result channel has closed unexpectedly");
+                }
+            })
+            .expect("Failed to spawn pdf_worker thread");
+
+        log::info!("Set up PDF worker thread.");
+
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        return Self {
+            pool: None,
+            html_channel: Some(html_sender),
+        };
+
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        return Self {
+            html_channel: html_sender,
+        };
+    }
 }
 
-impl Default for PdfApplicationWorker {
+fn convert_html_to_pdf(pdf_application: &mut PdfApplication, html: &str) -> PdfResult {
+    use wkhtmltopdf::Orientation;
+
+    log::debug!("Converting html to pdf");
+    let pdf_result = pdf_application
+        .builder()
+        .title("Qr Slip")
+        .orientation(Orientation::Landscape)
+        .build_from_html(html)
+        .map(|output| {
+            output
+                .bytes()
+                .collect::<Result<Vec<u8>, io::Error>>()
+                .map_err(PdfApplicationError::IoError)
+        })
+        .map_err(PdfApplicationError::WkhtmlError);
+
+    log::debug!("Done converting html to pdf");
+
+    // flatten `Result<Result<T, E>, E>` to `Result<T, E>` manually as flatten() is currently nightly only
+    match pdf_result {
+        Ok(Err(e)) => Err(e),
+        Ok(Ok(bytes)) => Ok(bytes),
+        Err(e) => Err(e),
+    }
+}
+
+impl Default for PdfApplicationWorkerManager {
     fn default() -> Self {
-        PdfApplicationWorker::new()
+        PdfApplicationWorkerManager::new()
     }
 }
 
@@ -394,20 +504,31 @@ impl Default for PdfApplicationWorker {
 pub enum PdfApplicationError {
     WkhtmlError(wkhtmltopdf::Error),
     IoError(io::Error),
+    /// When an error is received across process boundaries only the message is serialised,
+    /// the message is then wrapped in this enum variant to transform it back to a PdfApplicationError.
+    RawError(String),
+    /// Error returned when spawning a PDF worker process fails
+    SpawnError,
+}
+
+impl std::error::Error for PdfApplicationError {}
+
+impl Display for PdfApplicationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PdfApplicationError::WkhtmlError(ref e) => formatter.write_str(&e.to_string()),
+            PdfApplicationError::IoError(ref e) => formatter.write_str(&e.to_string()),
+            PdfApplicationError::RawError(ref e) => formatter.write_str(e),
+            PdfApplicationError::SpawnError => {
+                formatter.write_str("Failed to spawn PdfApplication worker process")
+            }
+        }
+    }
 }
 
 impl PdfApplicationError {
     pub fn get_rejection(&self) -> Rejection {
         warp::reject::custom(PdfError(self.to_string()))
-    }
-}
-
-impl ToString for PdfApplicationError {
-    fn to_string(&self) -> String {
-        match self {
-            PdfApplicationError::WkhtmlError(ref e) => e.to_string(),
-            PdfApplicationError::IoError(ref e) => e.to_string(),
-        }
     }
 }
 
