@@ -1,11 +1,12 @@
 #[cfg(not(debug_assertions))]
 use std::io::Read;
 use std::{
-    cell::RefCell,
     error::Error,
     fmt::{self, Display},
     io,
 };
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use std::cell::RefCell;
 #[cfg(debug_assertions)]
 use std::{
     fs,
