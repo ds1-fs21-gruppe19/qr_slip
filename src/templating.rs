@@ -501,7 +501,7 @@ fn validate_qr_data(qr_data: &QrData) -> Result<(), ValidationError> {
 
 #[inline]
 fn is_qr_iban(iban: &str) -> bool {
-    let iid = match u32::from_str_radix(&iban[4..9], 10) {
+    let iid = match (&iban[4..9]).parse::<u32>() {
         Ok(iid) => iid,
         Err(_) => return false,
     };
@@ -533,10 +533,10 @@ fn validate_amount(amount: &str) -> Result<(), ValidationError> {
         ));
     }
 
-    let integral = u32::from_str_radix(integral_str, 10).map_err(|_| {
+    let integral = integral_str.parse::<u32>().map_err(|_| {
         ValidationError::new("Decimal amount not formatted correctly, integral is not a valid u32")
     })?;
-    let fractional = u32::from_str_radix(fractional_str, 10).map_err(|_| {
+    let fractional = fractional_str.parse::<u32>().map_err(|_| {
         ValidationError::new(
             "Decimal amount not formatted correctly, fractional is not a valid u32",
         )

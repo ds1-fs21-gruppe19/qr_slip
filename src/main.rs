@@ -86,8 +86,7 @@ async fn main() {
         log::info!("Running diesel migrations");
         let connection = acquire_db_connection().expect("Failed to acquire database connection");
         if let Err(e) = embedded_migrations::run_with_output(&connection, &mut std::io::stdout()) {
-            eprintln!("Failed running db migrations: {}", e);
-            return;
+            panic!("Failed running db migrations: {}", e);
         }
         log::info!("Done running diesel migrations");
     }
