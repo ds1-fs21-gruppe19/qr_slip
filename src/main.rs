@@ -55,8 +55,7 @@ const QR_GENERATOR_SCRIPT: &str = std::include_str!("resources/py/qr_generator.p
 #[cfg(feature = "auto_migration")]
 diesel_migrations::embed_migrations!();
 
-#[tokio::main]
-async fn main() {
+fn main() {
     dotenv().ok();
     setup_logger();
     #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -92,6 +91,11 @@ async fn main() {
         log::info!("Done running diesel migrations");
     }
 
+    setup_tokio_runtime();
+}
+
+#[tokio::main]
+async fn setup_tokio_runtime() {
     let login_route = warp::path("login")
         .and(warp::post())
         .and(warp::body::json())
