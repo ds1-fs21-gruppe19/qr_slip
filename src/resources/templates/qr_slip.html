@@ -15,8 +15,18 @@
 {% endfor %}
 </body>
 <style>
+    @media print {
+        body {
+            margin: 5mm;
+        }
+    }
+
+    @page {
+        margin: 5mm;
+    }
+
     body {
-        font-family: Arial, Frutiger, Helvetica und Liberation Sans;
+        font-family: Arial, Frutiger, Helvetica, Liberation Sans;
         line-height: 0;
     }
 
@@ -39,7 +49,7 @@
         font-size: 6pt;
         line-height: 1pt;
     }
-
+/*
     .receipt-payable-by {
         width: 52mm;
         height: 20mm;
@@ -61,7 +71,6 @@
     }
 
     .corners {
-        position: relative;
         color: #000;
         box-sizing: content-box;
         border: 0.75pt solid transparent;
@@ -72,7 +81,6 @@
         content: "";
         width: 3mm;
         height: 3mm;
-        position: absolute;
     }
 
     .corners::before {
@@ -103,108 +111,85 @@
         border-right: 0.75pt solid #000;
     }
 
-
+*/
     #rightPart br {
         line-height: 11pt;
     }
-
+    #rightPart{
+        margin-left: 5mm;
+        width: 87mm;
+    }
     #leftPart br {
         line-height: 9pt;
     }
 
-    #slip, #leftPart, #rightPart {
-        display: grid;
+    .clear {
+        clear: left;
+    }
+
+    #receiptCurrencyTitle, #receiptCurrencyAmount, #paymentCurrencyAmount, #paymentCurrencyTitle {
+        width: 50%;
+        height: 14mm;
+    }
+
+    #middlePart {
+        padding-left: 2.5mm;
+        width: 51mm;
+    }
+
+    #slip, #leftPart, #rightPart, #middlePart, #receiptCurrencyTitle, #receiptCurrencyAmount, #cutVertical,
+    #paymentCurrencyTitle, #paymentCurrencyAmount {
+        float: left;
     }
 
     #slip {
-        grid-template-columns: 52mm 56mm 87mm;
-        width: 200mm;
-        height: 95mm;
-        grid-gap: 5mm;
-        padding: 5mm;
-    }
-    #cutHorizontal{
         width: 210mm;
-        grid-column: 1/-1;
-        grid-row: 1/1;
-        margin-top: -6.5mm;
-        margin-left: -5mm;
-        background-origin: content-box;
-    }
-    #cutVertical{
-        grid-column: 5/6;
-        grid-row: 1/-1;
-        margin-top: -5mm;
-        margin-left: -1.5mm;
-    }
-    #cutVertical svg{
         height: 105mm;
-    }
-    #leftPart {
-        grid-area: inherit;
-        grid-column: 1/2;
-        width: 113mm;
-        grid-template-rows: 7mm auto 14mm 18mm;
-        grid-template-columns: 14mm 14mm 24mm repeat(2, 5mm) 14mm 32mm;
+        margin-top: 0.5mm;
     }
 
-    #rightPart {
-        grid-column: 3/-1;
-        grid-template-columns: auto;
-        grid-template-rows: auto;
+    #cutHorizontal {
+        width: 210mm;
+        height: 6mm;
+        margin-top: -1mm;
+    }
+
+    #cutVertical {
+        margin-top: -4mm;
+        margin-left: -2.5mm;
+    }
+
+    #cutVertical svg {
+        height: 105mm;
+        width: 5mm;
+    }
+
+    #leftPart {
+        width: 52mm;
+        height: 100mm;
+        padding-left: 5mm;
+        margin-right: 5mm;
     }
 
     #receiptAccount {
-        grid-column: 1/4;
-        grid-row: 2/3;
+        height: 56mm;
     }
 
-    #receiptTitle {
-        grid-area: 1 /1 / span 1 / span 3;
-    }
-
-    #receiptCurrencyTitle {
-        grid-column: 1/2;
-    }
-
-    #receiptCurrencyAmount {
-        grid-column: 2/4;
+    #receiptTitle, #paymentTitle {
+        height: 7mm;
     }
 
     #receiptAcceptancePoint {
-        grid-column: 3/4;
         text-align: right;
-    }
-
-    #paymentTitle, #paymentQrCode {
-        grid-column: 6/8;
-    }
-
-    #paymentTitle {
-        grid-row: 1/2;
+        height: 18mm;
     }
 
     #paymentQrCode {
-        grid-row: 2/3;
-    }
-
-    #paymentCurrencyTitle {
-        grid-row: 3/4;
-        grid-column: 6/7;
+        height: 58.5mm;
     }
 
     #receiptAcceptancePoint {
         margin-right: 5mm;
-    }
-
-    #paymentCurrencyAmount {
-        /*grid-row: 5/6;*/
-        grid-row: 3/4;
-        grid-column: 7/8;
-    }
-
-    #paymentAccount {
-        grid-column: 1/2;
     }
 
     .payment-part-data {
@@ -212,12 +197,14 @@
     }
 
     #paymentQrCode svg {
-        max-width: 56mm;
-        max-height: 56mm;
-        margin: -2.5mm;
-        padding-top: 5mm;
+        width: 56mm;
+        height: 56mm;
+        margin-left: -2.5mm;
         z-index: -1;
-        position: absolute;
+    }
+
+    .clear-both {
+        clear: both;
     }
 </style>
 </html>
