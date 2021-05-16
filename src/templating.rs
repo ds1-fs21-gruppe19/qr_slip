@@ -473,12 +473,14 @@ impl PdfApplicationWorkerManager {
 
 fn convert_html_to_pdf(pdf_application: &mut PdfApplication, html: &str) -> PdfResult {
     use wkhtmltopdf::Orientation;
+    use wkhtmltopdf::Size;
 
     log::debug!("Converting html to pdf");
     let pdf_result = pdf_application
         .builder()
         .title("Qr Slip")
-        .orientation(Orientation::Landscape)
+        .orientation(Orientation::Portrait)
+        .margin(Size::Millimeters(0))
         .build_from_html(html)
         .map(|output| {
             output

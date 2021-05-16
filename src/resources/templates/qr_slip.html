@@ -5,49 +5,44 @@
     <title>Empfangsschein</title>
 </head>
 <body>
-
+{% set count = 0 %}
 {% for qr_data in qr_data_vec %}
 {% set qr_code = qr_code_vec[loop.index0] %}
 {{qr_slip_snippet::slip(qr_data=qr_data, qr_code=qr_code)}}
-{% if not loop.last %}
+{% set count = count + 1 %}
+{% if count is not odd %}
 <div style="page-break-before: always;"></div>
 {% endif %}
 {% endfor %}
 </body>
 <style>
-    @media print {
-        body {
-            margin: 5mm;
-        }
-    }
-
     @page {
         margin: 5mm;
     }
 
     body {
-        font-family: Arial, Frutiger, Helvetica, Liberation Sans;
+        font-family: Frutiger, Arial, Helvetica, Liberation Sans;
         line-height: 0;
     }
 
     h1 {
         font-weight: bold;
-        font-size: 11pt;
+        font-size: 14.19pt;
     }
 
     h3 {
         font-weight: bold;
-        font-size: 8pt;
+        font-size: 10.32pt;
     }
 
     h4 {
         font-weight: bold;
-        font-size: 6pt;
+        font-size: 7.74pt;
     }
 
     p {
-        font-size: 6pt;
-        line-height: 1pt;
+        font-size: 7.74pt;
+        line-height: 1.29pt;
     }
 /*
     .receipt-payable-by {
@@ -113,14 +108,14 @@
 
 */
     #rightPart br {
-        line-height: 11pt;
+        line-height: 14.19pt;
     }
     #rightPart{
-        margin-left: 5mm;
-        width: 87mm;
+        margin-left: 6.45mm;
+        width: 112.23mm;
     }
     #leftPart br {
-        line-height: 9pt;
+        line-height: 11.61pt;
     }
 
     .clear {
@@ -129,12 +124,12 @@
 
     #receiptCurrencyTitle, #receiptCurrencyAmount, #paymentCurrencyAmount, #paymentCurrencyTitle {
         width: 50%;
-        height: 14mm;
+        height: 18.06mm;
     }
 
     #middlePart {
-        padding-left: 2.5mm;
-        width: 51mm;
+        padding-left: 3.225mm;
+        width: 65.79mm;
     }
 
     #slip, #leftPart, #rightPart, #middlePart, #receiptCurrencyTitle, #receiptCurrencyAmount, #cutVertical,
@@ -143,63 +138,67 @@
     }
 
     #slip {
-        width: 210mm;
-        height: 105mm;
-        margin-top: 0.5mm;
+        width: 270.9mm;
+        height: 135.45mm;
+        /*margin-top: 248.3mm;*/
+        margin-top: 245.347mm;
     }
 
     #cutHorizontal {
-        width: 210mm;
-        height: 6mm;
-        margin-top: -1mm;
+        width: 270.9mm;
+        /*height: 7.74mm;*/
+        height: 9.675mm;
+        margin-top: -1.29mm;
     }
 
     #cutVertical {
-        margin-top: -4mm;
-        margin-left: -2.5mm;
+        /*margin-top: -3.16mm;*/
+        margin-top: -2.7mm;
+        margin-left: -4mm;
     }
 
     #cutVertical svg {
-        height: 105mm;
-        width: 5mm;
+        height: 135.45mm;
+        /*height: 137.385mm;*/
+        width: 6.45mm;
     }
 
     #leftPart {
-        width: 52mm;
-        height: 100mm;
-        padding-left: 5mm;
-        margin-right: 5mm;
+        width: 67.08mm;
+        height: 129mm;
+        padding-left: 6.45mm;
+        margin-right: 6.45mm;
     }
 
     #receiptAccount {
-        height: 56mm;
+        height: 72.24mm;
     }
 
     #receiptTitle, #paymentTitle {
-        height: 7mm;
+        height: 9.03mm;
     }
 
     #receiptAcceptancePoint {
         text-align: right;
-        height: 18mm;
+        height: 23.22mm;
     }
 
     #paymentQrCode {
-        height: 58.5mm;
+        height: 75.465mm;
     }
 
     #receiptAcceptancePoint {
-        margin-right: 5mm;
+        margin-right: 6.45mm;
     }
 
     .payment-part-data {
-        font-size: 10pt;
+        font-size: 12.9pt;
     }
 
     #paymentQrCode svg {
-        width: 56mm;
-        height: 56mm;
-        margin-left: -2.5mm;
+        width: 72.24mm;
+        height: 72.24mm;
+        margin-left: -3.225mm;
         z-index: -1;
     }
 
