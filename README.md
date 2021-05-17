@@ -2,14 +2,16 @@
 
 ## Setup with Docker
 
-* run `docker-compose up --build` from root directory.
+* For the first time run `docker-compose up --build` from root directory. Afterwards `docker-compose up` should be suficient.
 
 Docker-compose will create:
 
-1. postgres container and run the sql/db.sql file to add all tables and relations.
-2. rust container (base on debian `rust:latest`).
+1. postgres container.
+2. Two rust containers (base on debian `rust:1.52.0`).
+3. Frontend container (node:16-alpine3.13)
+4. Loadbalancing container (nginx:alpine)
 
-After that you should be able to send requests to `localhost:80`.
+After that you should be able to request the frontend over `localhost:8000`.
 
 ## Setup
 
