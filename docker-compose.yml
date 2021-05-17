@@ -9,20 +9,15 @@ services:
       interval: 5s
       retries: 15
     restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: qr_slip
-    ports:
-      - "5432:5432"
+    env_file:
+      - config.env
     networks:
       - internal
   service_1:
     container_name: service_1
     build: .
-    environment:
-      JWT_SECRET: 165434867894
-      DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
+    env_file:
+      - config.env
     depends_on:
       - db
     networks:
@@ -31,9 +26,8 @@ services:
   service_2:
     container_name: service_2
     build: .
-    environment:
-      JWT_SECRET: 165434867894
-      DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
+    env_file:
+      - config.env
     depends_on:
       - db
     networks:
@@ -57,8 +51,6 @@ services:
   frontend:
     container_name: frontend
     build: ../Front-end
-    ports:
-      - 3000:3000
     networks:
       - internal
 
