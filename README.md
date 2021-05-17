@@ -2,7 +2,15 @@
 
 ## Setup with Docker
 
-* For the first time run `docker-compose up --build` from root directory. Afterwards `docker-compose up` should be suficient.
+1. To run qr_slip via docker-compose, first clone the [Front-End](https://github.com/ds1-fs21-gruppe19/Front-end.git) and [qr_slip](https://github.com/ds1-fs21-gruppe19/qr_slip.git) into the same directory. e.g. `/home/qr_slip` and `/home/Front-End`
+2. Then create a `config.env` file to `qr_slip/config.env`
+3. Add the following variables & keys to the .env file. Please note to set the same values for `POSTGRES_USER` and `POSTGRES_PASSWORD` also to the `DATABASE_URL`.
+* `POSTGRES_USER=_someUser_`
+* `POSTGRES_PASSWORD=_somePassword_`
+* `POSTGRES_DB=qr_slip`
+* `JWT_SECRET=_someRandomUnsigned64_`
+* `DATABASE_URL=postgres://_someUser_:_somePassword_@db:5432/qr_slip`
+4. For the first time run `docker-compose up --build` from root qr_slip root directory. Afterwards `docker-compose up` should be suficient.
 
 Docker-compose will create:
 
@@ -11,7 +19,10 @@ Docker-compose will create:
 3. Frontend container (node:16-alpine3.13)
 4. Loadbalancing container (nginx:alpine)
 
-After that you should be able to request the frontend over `localhost:8000`.
+After that you should be able to request the frontend in your browser over `localhost:8000`.
+
+The `docker-compose.yml` file starts two rust containers. Only the first container starts with feature auto_migration (as the Dockerfile does).
+For the secound conatiner the yml-file overwrites the start-command without auto_migration.
 
 ## Setup
 
