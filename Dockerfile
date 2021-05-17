@@ -13,8 +13,6 @@ RUN wget https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkh
 RUN dpkg -i ./wkhtmltox_0.12.6-1.buster_amd64.deb
 RUN rm wkhtmltox_0.12.6-1.buster_amd64.deb
 
-RUN cargo install diesel_cli --no-default-features --features postgres
-
 RUN cargo build --release
 
-CMD [ "cargo", "run", "--release", "--features", "auto_migration"] 
+CMD [ "cargo", "run", "--release", "--features", "auto_migration"]

@@ -23,29 +23,23 @@ services:
     environment:
       JWT_SECRET: 165434867894
       DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
-    ports:
-      - 8081:8000
     depends_on:
       - db
     networks:
       - internal
       - external
-    # deploy:
-    #   mode: replicated
-    #   replicas: 2
   service_2:
     container_name: service_2
     build: .
     environment:
       JWT_SECRET: 165434867894
       DATABASE_URL: postgres://postgres:password@db:5432/qr_slip
-    ports:
-      - 8082:8000
     depends_on:
       - db
     networks:
       - internal
       - external
+    command: "cargo run --release"
   lb:
     container_name: lb
     image: nginx:alpine
