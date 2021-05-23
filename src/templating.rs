@@ -103,6 +103,10 @@ lazy_static! {
     };
 }
 
+/// Struct containing all data used to generate a qr_slip and qr code. Each endpoint in this module
+/// expects an array of json objects (or in the case of /dbg-qr-svg just one) that can be deserialized
+/// to this struct. Additionally, this struct validates input data according to the
+/// [six specification](https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-de.pdf).
 #[derive(Clone, Serialize, Deserialize, IntoPyObject, Debug, Validate)]
 #[validate(schema(function = "validate_qr_data", skip_on_field_errors = true))]
 pub struct QrData {
@@ -164,6 +168,8 @@ impl QrData {
     }
 }
 
+/// Handler for the /generate-slip endpoint which creates a PDF containing a slip for all provided
+/// [`QrData`] objects. The PDF is returned as bytes in the response body.
 pub async fn generate_slip_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
     let qr_svg_vec = generate_qr_svg_for_all(&mut qr_data_vec)?;
     let html = generate_html_slip(qr_data_vec, qr_svg_vec)?;
@@ -175,6 +181,8 @@ pub async fn generate_slip_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl 
     Ok(pdf)
 }
 
+/// Like [`generate_slip_handler`] but saves the PDF as a file in the local tmp/ directory.
+/// Endpoint only available in debug mode.
 #[cfg(debug_assertions)]
 pub async fn dbg_qr_pdf_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
     let qr_svg_vec = generate_qr_svg_for_all(&mut qr_data_vec)?;
@@ -189,6 +197,8 @@ pub async fn dbg_qr_pdf_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Rep
     Ok(warp::reply())
 }
 
+/// Like [`generate_slip_handler`] but only generates the html without converting it to PDF and saves
+/// it as a file in the local tmp/ directory. Endpoint only available in debug mode.
 #[cfg(debug_assertions)]
 pub async fn dbg_qr_html_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Reply, Rejection> {
     let qr_svg_vec = generate_qr_svg_for_all(&mut qr_data_vec)?;
@@ -199,6 +209,8 @@ pub async fn dbg_qr_html_handler(mut qr_data_vec: Vec<QrData>) -> Result<impl Re
     Ok(warp::reply())
 }
 
+/// Like [`generate_slip_handler`] but only generates the qr code svg and saves it as a file in the
+/// local tmp/ directory. Endpoint only available in debug mode.
 #[cfg(debug_assertions)]
 pub async fn dbg_qr_svg_handler(mut qr_data: QrData) -> Result<impl Reply, Rejection> {
     qr_data.verify()?;
@@ -228,6 +240,7 @@ fn save_bytes_to_file(bytes: &[u8], extension: &str) -> Result<(), Rejection> {
     Ok(())
 }
 
+/// Generates a qr code rendered as an svg graphic for all provided [`QrData`] objects.
 pub fn generate_qr_svg_for_all(qr_data_vec: &mut [QrData]) -> Result<Vec<String>, Rejection> {
     qr_data_vec
         .iter_mut()
@@ -238,6 +251,11 @@ pub fn generate_qr_svg_for_all(qr_data_vec: &mut [QrData]) -> Result<Vec<String>
         .collect::<Result<Vec<String>, Rejection>>()
 }
 
+/// Generates a qr code rendered as an svg graphic returned as String for the given [`QrData`] object.
+///
+/// If USE_PY_QR_GENERATOR is set to true, the script resources/py/qr_generator.py is used to generate
+/// the svg, else the qrcode crate is used. The encoded qr code conforms to the
+/// [six specification](https://www.paymentstandards.ch/dam/downloads/ig-qr-bill-de.pdf).
 pub fn generate_qr_svg(qr_data: &QrData) -> Result<String, Rejection> {
     if *crate::USE_PY_QR_GENERATOR {
         Python::with_gil(|py| {
@@ -289,6 +307,7 @@ pub fn generate_qr_svg(qr_data: &QrData) -> Result<String, Rejection> {
         let pixel_width = module_pixels as usize * (width_in_modules + 4 * 2);
         let center = pixel_width / 2;
 
+        // insert swiss cross element ahead of the closing tag
         if let Some(pos) = qr_svg.rfind("</svg>") {
             qr_svg.insert_str(
                 pos,
@@ -306,6 +325,9 @@ pub fn generate_qr_svg(qr_data: &QrData) -> Result<String, Rejection> {
     }
 }
 
+/// Generates the HTML file containing all qr slips for the provided [`QrData`] elements. The `qr_svg_vec`
+/// contains the generated qr code for each object in `qr_data_vec` in the same position. Both parameters
+/// are supplied to the context for the tera template which produces the HTML output.
 pub fn generate_html_slip(
     qr_data_vec: Vec<QrData>,
     qr_svg_vec: Vec<String>,
@@ -331,6 +353,9 @@ fn py_err_into_rejection(e: PyErr, py: Python) -> Rejection {
 
 pub type PdfResult = Result<Vec<u8>, PdfApplicationError>;
 
+/// Struct managing a worker thread, or worker process pool if PDF_WORKER_POOL_SIZE is set to a non-zero
+/// value, that manages a wkhtmltopdf PdfApplication which builds PDF files from HTML input.
+/// The worker process pool option is only supported on macOS or Linux.
 pub struct PdfApplicationWorkerManager {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     pool: Option<procspawn::Pool>,
@@ -341,6 +366,9 @@ pub struct PdfApplicationWorkerManager {
 }
 
 impl PdfApplicationWorkerManager {
+
+    /// Creates a new PdfApplicationWorkerManager by spawning the worker thread if PDF_WORKER_POOL_SIZE
+    /// is not set to a non-zero or sets up a process pool with the size provided by PDF_WORKER_POOL_SIZE.
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub fn new() -> Self {
         if *PDF_WORKER_POOL_SIZE > 0 {
@@ -374,6 +402,8 @@ impl PdfApplicationWorkerManager {
         Self::new_single_threaded_worker()
     }
 
+    /// Submits a task to the worker thread or process pool to convert the provided HTML string to
+    /// a Vec of bytes representing a PDF file.
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub async fn generate_pdf_from_html(&self, html: String) -> PdfResult {
         if let Some(ref pool) = self.pool {
@@ -471,6 +501,7 @@ impl PdfApplicationWorkerManager {
     }
 }
 
+/// Convert the given HTML string to a Vec of bytes representing a PDF file using the given PdfApplication.
 fn convert_html_to_pdf(pdf_application: &mut PdfApplication, html: &str) -> PdfResult {
     use wkhtmltopdf::Orientation;
     use wkhtmltopdf::Size;

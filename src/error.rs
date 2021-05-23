@@ -52,6 +52,7 @@ struct ErrorResponse {
     status: String,
 }
 
+/// Creates a Rejection response for the given error and logs internal server errors.
 pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(e) = err.find::<Error>() {
         let (code, message) = match e {

@@ -74,6 +74,15 @@ endpoints.
 When running in production, the feature `auto_migration` should be enabled so that migrations run at startup automatically
 using `cargo run --release --features auto_migration`.
 
+## Development Environment
+
+The recommended environment for working with the qr_slip codebase is VSCode with the rust-analyzer plugin or Intellij / CLion
+with the Rust plugin.
+
+## Documentation
+
+The documentation can the rendered as an HTML site and opened in a browser using `cargo doc --open`.
+
 ## Endpoints
 
 ### `/login`

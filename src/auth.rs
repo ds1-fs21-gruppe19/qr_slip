@@ -24,18 +24,21 @@ use crate::{
     DbConnection,
 };
 
+/// Struct received by the /login request.
 #[derive(Deserialize)]
 pub struct LoginRequest {
     pub user_name: String,
     pub password: String,
 }
 
+/// Struct returned by the /login and /refresh-login endpoints.
 #[derive(Serialize)]
 pub struct LoginResponse {
     pub token: String,
     pub expiration_secs: i64,
 }
 
+/// Struct received by the /register endpoint used to create a principal and one qr_user.
 #[derive(Deserialize)]
 pub struct UserRegistration {
     pub name: String,
@@ -48,17 +51,20 @@ pub struct UserRegistration {
     pub password: String,
 }
 
+/// Struct encoded in the JWT that contains its expiry and subject principal.
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     exp: usize,
     sub: String,
 }
 
+/// Warp filter for requests that optionally receive the logged in principal from the auth header.
 pub fn with_principal_optional(
 ) -> impl warp::Filter<Extract = (Option<Principal>,), Error = Rejection> + Clone {
     headers_cloned().and_then(get_principal_from_auth_header)
 }
 
+/// Warp filter for requests that require a logged in principal provided by the auth header.
 pub fn with_principal() -> impl warp::Filter<Extract = (Principal,), Error = Rejection> + Clone {
     headers_cloned().and_then(require_principal_from_auth_header)
 }
@@ -71,6 +77,10 @@ async fn require_principal_from_auth_header(header_map: HeaderMap) -> Result<Pri
     }
 }
 
+/// Decodes the user name provided by the JWT if provided and finds the matching Principal.
+///
+/// Failure to find the Principal would return a QueryError causing a 500 response as the username
+/// should always refer to an existing Principal.
 async fn get_principal_from_auth_header(
     header_map: HeaderMap,
 ) -> Result<Option<Principal>, Rejection> {
@@ -106,6 +116,9 @@ async fn get_principal_from_auth_header(
     }
 }
 
+/// Handler for the /login endpoint that receives a json deserialized to the [`LoginRequest`] struct
+/// and returns a [`LoginResponse`] if the credentials are correct or a InvalidCredentialsError, which
+/// results in a 403, if the credentials are not correct.
 pub async fn login_handler(request: LoginRequest) -> Result<impl Reply, Rejection> {
     let connection = acquire_db_connection()?;
 
@@ -134,6 +147,8 @@ pub async fn login_handler(request: LoginRequest) -> Result<impl Reply, Rejectio
     create_login_response(&principal, refresh_token_cookie)
 }
 
+/// Create a HttpOnly Cookie that may be used to refresh logins by generating a UUID which is persisted
+/// to the database as a RefreshToken entity which links the UUID to the Principal.
 fn create_refresh_token_cookie(
     principal: &Principal,
     connection: &DbConnection,
@@ -167,6 +182,8 @@ fn create_refresh_token_cookie(
     ))
 }
 
+/// Create a [`LoginResponse`] for the provided Principal and add the provided refresh token cookie.
+/// Used when a /login or /refresh-login succeeds.
 fn create_login_response(
     principal: &Principal,
     refresh_token_cookie: String,
@@ -208,6 +225,11 @@ fn create_login_response(
     Ok(response_body)
 }
 
+/// Refreshes a login for the provided refresh token by creating a fresh JWT for the Principal linked
+/// to the refresh token and refreshes the refresh token with a new UUID and resets its expiration.
+///
+/// Returns a [`LoginResponse`] with the new JWT if the refresh token is valid (the UUID exists and
+/// the refresh token is not expired) or else returns a InvalidRefreshTokenError which results in a 401.
 pub async fn refresh_login_handler(refresh_token: String) -> Result<impl Reply, Rejection> {
     let connection = acquire_db_connection()?;
     let curr_token_uuid = Uuid::parse_str(&refresh_token)
@@ -256,6 +278,17 @@ lazy_static! {
     static ref USER_NAME_SYNC: MutexSync<String> = MutexSync::new();
 }
 
+/// Registers a user by creating a new Principal and one QrUser. This request receives a json that
+/// is deserialized to the [`UserRegistration`] struct which contains all information to create a
+/// new Principal and one related QrUser.
+///
+/// If the given user_name already exists the endpoint returns a PrincipalExistsError which results
+/// in a 400.
+///
+/// Creating the Principal is synchronised based on the value of user_name by mapping a mutex to it.
+/// This means that concurrent attempts to register the same user_name will be synchronised so that
+/// one request is guaranteed to see the Principal created by other, instead of receiving unique
+/// constraint violation when committing either transaction.
 pub async fn register_handler(
     user_registration: UserRegistration,
 ) -> Result<impl Reply, Rejection> {
@@ -329,6 +362,8 @@ pub struct CreateUser {
     pub country: String,
 }
 
+/// Creates a new user (creditor) for the currently logged in Principal. This request receives a json
+/// that is deserialized to the [`CreateUser`] struct.
 pub async fn create_user_handler(
     principal: Principal,
     create_user: CreateUser,
@@ -354,6 +389,7 @@ pub async fn create_user_handler(
     }
 }
 
+/// Returns all users (creditors) saved by the currently logged in Principal.
 pub async fn get_users_handler(principal: Principal) -> Result<impl Reply, Rejection> {
     let connection = acquire_db_connection()?;
 
@@ -366,6 +402,9 @@ pub async fn get_users_handler(principal: Principal) -> Result<impl Reply, Rejec
     }
 }
 
+/// Deletes all users where the pk matches any of the provided keys in the comma separated `user_keys_str`,
+/// which is defined by the path parameter. Invalid primary keys that either do not exist or describe
+/// entities that do not belong to the current principal are ignored.
 pub async fn delete_users_handler(
     principal: Principal,
     user_keys_str: String,

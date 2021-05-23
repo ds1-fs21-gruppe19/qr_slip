@@ -94,6 +94,7 @@ fn main() {
     setup_tokio_runtime();
 }
 
+/// Start a tokio runtime that runs a warp server.
 #[tokio::main]
 async fn setup_tokio_runtime() {
     let login_route = warp::path("login")
